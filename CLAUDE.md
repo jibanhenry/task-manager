@@ -33,8 +33,10 @@ Layered: routes → services → repositories.
   signal "not found".
 - Check existence with `if task_id not in TASKS:` before indexing, as
   `get_user` does with `USERS`.
-- New service functions get a test in `tests/test_tasks.py` covering both
-  the valid case and the error case.
+- Tests in `tests/test_tasks.py`: when you add a service function OR change
+  what an existing one raises, add a test asserting the specific error class,
+  e.g. `pytest.raises(NotFoundError)`. `pytest.raises(Exception)` is not
+  enough — it also passes on a raw `KeyError`.
 
 ## Do not touch
 - `utils/errors.py`: do not change `AppError.__init__`'s signature or its
