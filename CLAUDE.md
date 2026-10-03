@@ -18,6 +18,9 @@ Layered: routes → services → repositories.
 - Repositories: there is no separate repository module yet. The module-level
   dicts `TASKS` (services/tasks.py) and `USERS` (services/users.py) act as
   the data store. Only code in the same service file reads or writes them.
+- Cross-service lookups go through the other service's public function:
+  `services/tasks.py` may call `get_user(user_id)` to check a user exists,
+  but never imports `USERS`.
 - `utils/errors.py`: `AppError` base class plus `NotFoundError` (404) and
   `ValidationError` (422). `handle_app_error` in `routes/api.py` turns any
   `AppError` into a JSON error response.

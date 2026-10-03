@@ -1,3 +1,4 @@
+from services.users import get_user
 from utils.errors import NotFoundError
 
 TASKS: dict[int, dict] = {
@@ -41,3 +42,19 @@ def create_task(title: str, user_id: int) -> dict:
     TASKS[new_id] = {"id": new_id, "title": title,
                      "done": False, "user_id": user_id}
     return TASKS[new_id]
+
+
+def get_tasks_for_user(user_id: int) -> list[dict]:
+    """Retrieve all tasks owned by a user.
+
+    Args:
+        user_id: The unique identifier for the user.
+
+    Returns:
+        A list of the user's task records; empty if the user has no tasks.
+
+    Raises:
+        NotFoundError: If no user exists with the given ID.
+    """
+    get_user(user_id)
+    return [task for task in TASKS.values() if task["user_id"] == user_id]

@@ -89,3 +89,48 @@ Added to Commands:
 - Python is 3.9 and the command is `python3`; there is no `python` on PATH.
 ```
 I added this because in Session 2 Claude's first command used `python`, failed, and had to retry with `python3`.
+
+## Session 3 — 2026-10-03
+
+### Prompt used
+```
+Add a new function to @services/tasks.py that returns all tasks for a given user_id. Follow the same pattern as the existing functions. Add a test for it. Run pytest -v when done.
+```
+
+### What Claude did
+Correct:
+- Added `get_tasks_for_user(user_id: int) -> list[dict]` with a full Google-style docstring (`Args`, `Returns`, `Raises`).
+- For an unknown user it raises `NotFoundError("User")`, and said it chose this because CLAUDE.md forbids using `None` or an empty result to mean "not found". An existing user with no tasks gets `[]`.
+- Checked the user by calling `get_user()` from `services/users.py` instead of reading `USERS`, and said why: "only users.py may touch that dict". It flagged that `tasks.py` now imports from `users.py` and offered the `[]` alternative.
+- Added two tests, one asserting `pytest.raises(NotFoundError)`. The valid test checks that tasks 1 and 2 are included and task 3 is not, instead of an exact list, because `test_create_task_valid` earlier in the file adds a task for user 1.
+- Its first version added two new flake8 warnings (E302 before the new function, E128 on a wrapped import). It noticed and fixed both itself, and left the baseline E302 warnings alone.
+- Used `python3` for its shell command; no `python` retry this time.
+- Did not add a route to `routes/api.py`; asked instead.
+- `pytest -v`: 8 passed.
+
+Wrong: nothing I needed to correct.
+
+Corrections needed: 0.
+
+### Observation
+- Both Session 2 updates held. The refactor rule did not apply here (this was new code), but the environment rule did: no `python` failure this session.
+- The Session 1 test rule held for the third time; Claude quoted CLAUDE.md for the `NotFoundError` test.
+- The Architecture rule about `TASKS`/`USERS` produced inconsistent behavior across sessions. In Session 2, Claude refused to call `get_user` from the tasks service ("a bigger change") and asked. In Session 3, facing the same question, it called `get_user`. Both readings fit the old rule, which only said who may touch the dicts, not whether one service may call another.
+
+### CLAUDE.md update
+Added to Architecture:
+```
+- Cross-service lookups go through the other service's public function:
+  `services/tasks.py` may call `get_user(user_id)` to check a user exists,
+  but never imports `USERS`.
+```
+I added this because Claude treated calling `get_user` from `services/tasks.py` as off-limits in Session 2 but did it in Session 3, so the rule needed to state the answer instead of leaving it to Claude each time.
+
+## Summary of improvement
+| Session | Task | Corrections | Rules Claude cited from CLAUDE.md |
+|---|---|---|---|
+| 1 | Error handling in `get_task` | 0 | lint rule |
+| 2 | Style refactor of `create_task` | 1 (removed added validation) | test rule (new after S1) |
+| 3 | New function + tests | 0 | test rule, error rule, Architecture dict rule |
+
+Session 3 needed no corrections on the hardest task of the three (new function, cross-service lookup, new tests), compared with one correction in Session 2. Session 1 also needed none, but it was a single-function fix that the v1 Conventions section described almost exactly. The clearer change is consistency: rules added after a session were cited by Claude in the next one, and the `python` failure from Session 2 did not repeat.

@@ -1,0 +1,74 @@
+▗ ▗   ▖ ▖  Claude Code v2.1.288
+           Opus 5.5 · Claude Pro
+ ▘▘   ▝▝   ~/…/吴冠鹤/博士学习/course/2026 Fall/CC/Assignment 4/task-manager
+
+▎ Your voice can help guide AI
+▎ Take 15 min to share your experiences with Anthropic Interviewer. Start now (https://clau.de/yourthoughts)
+
+❯ Add a new function to @services/tasks.py that returns all tasks for a given   
+  user_id. Follow the same pattern as the existing functions. Add a test for    
+  it. Run pytest -v when done.                                                  
+  ⎿  Read services/tasks.py (44 lines)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ Tests pass. My additions introduced two new flake8 warnings (E302 on the new
+  function, E128 on the import), so I'll fix those.
+
+⏺ Bash(cd "/Users/wuguanhe/Desktop/吴冠鹤/博士学习/course/2026
+      Fall/CC/Assignment 4/task-manager" && python3 - <<'EOF'
+      p = "services/tasks.py"…)
+  ⎿  ........
+        [100%]
+     8 passed in 0.01s
+     … +63 lines (ctrl+o to expand)
+  ⎿  Updated services/tasks.py (+1 -0)
+      43                       "done": False, "user_id": user_id}
+      44      return TASKS[new_id]
+      45  
+      46 +                                                               
+      47  def get_tasks_for_user(user_id: int) -> list[dict]:
+      48      """Retrieve all tasks owned by a user.
+      49  
+  ⎿  Updated tests/test_tasks.py (+2 -2)
+      1  import pytest
+      2 -from services.tasks import (process_order, get_task, create_task
+        -,                                                               
+      3 -                           get_tasks_for_user)                  
+      2 +from services.tasks import process_order, get_task, create_task 
+      3 +from services.tasks import get_tasks_for_user                   
+      4  from utils.errors import NotFoundError
+      5  
+      6  def test_process_order_valid():
+
+⏺ I added get_tasks_for_user(user_id: int) -> list[dict] to services/tasks.py
+  and two tests for it. pytest -v passes all 8 tests, the 6 existing ones and
+  the 2 new ones.
+
+  The function has type hints and a Google-style docstring like get_user. It
+  returns every task whose user_id matches, and an empty list if the user exists
+  but has no tasks.
+
+  One choice to check: if the user doesn't exist, it raises
+  NotFoundError("User"), following the rule against using None or an empty
+  result to mean "not found". It checks this by calling get_user() from
+  services/users.py rather than reading USERS directly, since only users.py may
+  touch that dict. That means tasks.py now imports from users.py. If you'd
+  rather an unknown user just get back [], that's a one-line change.
+
+  Tests (in tests/test_tasks.py):
+  - test_get_tasks_for_user_valid: user 1's results include tasks 1 and 2, leave
+    out task 3 (which belongs to user 2), and every result has user_id == 1.
+  - test_get_tasks_for_user_not_found_raises_not_found_error: uses
+    pytest.raises(NotFoundError), as CLAUDE.md requires.
+
+  The first test checks that tasks 1 and 2 are included rather than an exact
+  list, because an earlier test in the same file adds a task for user 1.
+
+  Lint: my first version added two flake8 warnings (missing blank lines before
+  the function, and indentation on the test import), and I fixed both. The only
+  warnings left are the E302 ones already in the baseline, which I didn't touch.
+
+  I didn't add an API route for this. Say if you want one in routes/api.py.
+
+✻ Worked for 26s · done 10:53 AM
