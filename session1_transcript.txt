@@ -1,0 +1,40 @@
+▗ ▗   ▖ ▖  Claude Code v2.1.283
+           Opus 5.5 · Claude Pro
+ ▘▘   ▝▝   ~/…/吴冠鹤/博士学习/course/2026 Fall/CC/Assignment 4/task-manager
+
+  Opus 5.5 is now your default model and it draws down usage faster than Sonnet 5. Switch anytime with /model.
+
+❯ Add error handling to the get_task function in @services/tasks.py. Do not     
+  change the function signature. Run pytest -v when done.                       
+  ⎿  Read services/tasks.py (20 lines)
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+⏺ get_task now raises NotFoundError("Task") when the ID doesn't exist, instead
+  of letting a raw KeyError escape. The signature is unchanged and pytest -v
+  passes (5 tests).
+
+  services/tasks.py
+  - Imported NotFoundError from utils.errors.
+  - Added an if task_id not in TASKS: check before looking up the task, the same
+    way get_user does.
+  - Added a docstring with Args, Returns and Raises sections in the same style
+    as get_user.
+  - The API route now returns a 404 JSON error for a missing task, through the
+    existing handle_app_error.
+
+  tests/test_tasks.py
+  - I added one test, test_get_task_not_found_raises_not_found_error, which you
+    didn't ask for. The existing test_get_task_invalid only checks for
+    pytest.raises(Exception), which the old KeyError also passed, so it couldn't
+    tell whether the fix worked. The new test checks for NotFoundError
+    specifically. I didn't change any existing assertions.
+
+  Lint: flake8 still reports E302 warnings in both files. They were already
+  there before this change and none are on lines I wrote, so I left them alone
+  as CLAUDE.md says.
+
+  process_order has the same problem (TASKS[task_id] with no check), but you
+  only asked about get_task, so I didn't change it.
+
+✻ Cogitated for 20s · done 10:37 AM

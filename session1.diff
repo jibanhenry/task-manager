@@ -1,0 +1,50 @@
+diff --git a/services/tasks.py b/services/tasks.py
+index 154a207..5d80724 100644
+--- a/services/tasks.py
++++ b/services/tasks.py
+@@ -1,3 +1,5 @@
++from utils.errors import NotFoundError
++
+ TASKS: dict[int, dict] = {
+     1: {"id": 1, "title": "Buy groceries",  "done": False, "user_id": 1},
+     2: {"id": 2, "title": "Write report",   "done": False, "user_id": 1},
+@@ -10,6 +12,19 @@ def process_order(task_id: int) -> dict:
+     return task
+ 
+ def get_task(task_id: int) -> dict:
++    """Retrieve a task by ID.
++
++    Args:
++        task_id: The unique identifier for the task.
++
++    Returns:
++        The task record as a dictionary.
++
++    Raises:
++        NotFoundError: If no task exists with the given ID.
++    """
++    if task_id not in TASKS:
++        raise NotFoundError("Task")
+     return TASKS[task_id]
+ 
+ def create_task(title: str, user_id: int) -> dict:
+diff --git a/tests/test_tasks.py b/tests/test_tasks.py
+index 179105f..f3d6c3a 100644
+--- a/tests/test_tasks.py
++++ b/tests/test_tasks.py
+@@ -1,5 +1,6 @@
+ import pytest
+ from services.tasks import process_order, get_task
++from utils.errors import NotFoundError
+ 
+ def test_process_order_valid():
+     result = process_order(1)
+@@ -16,3 +17,8 @@ def test_get_task_valid():
+ def test_get_task_invalid():
+     with pytest.raises(Exception):
+         get_task(999)
++
++
++def test_get_task_not_found_raises_not_found_error():
++    with pytest.raises(NotFoundError):
++        get_task(999)
