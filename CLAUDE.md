@@ -3,6 +3,7 @@
 Flask API for tasks and users. In-memory data, no database.
 
 ## Commands
+- Python is 3.9 and the command is `python3`; there is no `python` on PATH.
 - Install: `pip install -r requirements.txt`
 - Run tests: `pytest -v` — run before finishing any task; all tests must pass
 - Lint: `flake8 .` — the baseline already has E302/F401 warnings; only fix
@@ -37,6 +38,9 @@ Layered: routes → services → repositories.
   what an existing one raises, add a test asserting the specific error class,
   e.g. `pytest.raises(NotFoundError)`. `pytest.raises(Exception)` is not
   enough — it also passes on a raw `KeyError`.
+- Refactor / "match the style of" requests change only docstrings, type
+  hints and layout. Do not add validation or change what a function raises
+  or returns; list any behavior change you think is needed and ask first.
 
 ## Do not touch
 - `utils/errors.py`: do not change `AppError.__init__`'s signature or its

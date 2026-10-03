@@ -1,0 +1,41 @@
+diff --git a/services/tasks.py b/services/tasks.py
+index 5d80724..389c393 100644
+--- a/services/tasks.py
++++ b/services/tasks.py
+@@ -28,6 +28,15 @@ def get_task(task_id: int) -> dict:
+     return TASKS[task_id]
+ 
+ def create_task(title: str, user_id: int) -> dict:
++    """Create a new task.
++
++    Args:
++        title: The task's title.
++        user_id: The ID of the user who owns the task.
++
++    Returns:
++        The newly created task record.
++    """
+     new_id = max(TASKS.keys()) + 1
+     TASKS[new_id] = {"id": new_id, "title": title,
+                      "done": False, "user_id": user_id}
+diff --git a/tests/test_tasks.py b/tests/test_tasks.py
+index f3d6c3a..6d01d8f 100644
+--- a/tests/test_tasks.py
++++ b/tests/test_tasks.py
+@@ -1,5 +1,5 @@
+ import pytest
+-from services.tasks import process_order, get_task
++from services.tasks import process_order, get_task, create_task
+ from utils.errors import NotFoundError
+ 
+ def test_process_order_valid():
+@@ -22,3 +22,9 @@ def test_get_task_invalid():
+ def test_get_task_not_found_raises_not_found_error():
+     with pytest.raises(NotFoundError):
+         get_task(999)
++
++
++def test_create_task_valid():
++    result = create_task("Plan trip", 1)
++    assert result["title"] == "Plan trip"
++    assert result["done"] is False

@@ -28,6 +28,15 @@ def get_task(task_id: int) -> dict:
     return TASKS[task_id]
 
 def create_task(title: str, user_id: int) -> dict:
+    """Create a new task.
+
+    Args:
+        title: The task's title.
+        user_id: The ID of the user who owns the task.
+
+    Returns:
+        The newly created task record.
+    """
     new_id = max(TASKS.keys()) + 1
     TASKS[new_id] = {"id": new_id, "title": title,
                      "done": False, "user_id": user_id}
