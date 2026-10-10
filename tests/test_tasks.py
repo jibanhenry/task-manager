@@ -1,7 +1,7 @@
 import pytest
 from services.tasks import process_order, get_task, create_task
-from services.tasks import get_tasks_for_user
-from utils.errors import NotFoundError
+from services.tasks import get_tasks_for_user, TASKS
+from utils.errors import NotFoundError, ValidationError
 
 def test_process_order_valid():
     result = process_order(1)
@@ -42,3 +42,38 @@ def test_get_tasks_for_user_valid():
 def test_get_tasks_for_user_not_found_raises_not_found_error():
     with pytest.raises(NotFoundError):
         get_tasks_for_user(999)
+
+
+def test_create_task_default_priority():
+    result = create_task("Plan trip", 1)
+    assert result["priority"] == 3
+
+
+@pytest.mark.parametrize("priority", [1, 5])
+def test_create_task_with_priority(priority):
+    result = create_task("Plan trip", 1, priority=priority)
+    assert result["priority"] == priority
+
+
+@pytest.mark.parametrize("priority", [0, 6, -1])
+def test_create_task_priority_out_of_range_raises_validation_error(priority):
+    with pytest.raises(ValidationError):
+        create_task("Plan trip", 1, priority=priority)
+
+
+@pytest.mark.parametrize("priority", ["3", 3.0, True])
+def test_create_task_priority_non_int_raises_validation_error(priority):
+    with pytest.raises(ValidationError):
+        create_task("Plan trip", 1, priority=priority)
+
+
+def test_create_task_invalid_priority_not_stored():
+    count = len(TASKS)
+    with pytest.raises(ValidationError):
+        create_task("Plan trip", 1, priority=0)
+    assert len(TASKS) == count
+
+
+def test_seed_tasks_have_priority():
+    for task_id in (1, 2, 3):
+        assert 1 <= TASKS[task_id]["priority"] <= 5
