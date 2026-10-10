@@ -3,16 +3,20 @@ import copy
 import pytest
 
 from services.tasks import TASKS
+from services.users import USERS
 
 
 @pytest.fixture(autouse=True)
-def restore_tasks():
-    """Snapshot TASKS before each test and restore it afterwards.
+def restore_data():
+    """Snapshot TASKS and USERS before each test and restore them afterwards.
 
-    TASKS is mutated in place because routes and services hold references
-    to the same dict object.
+    Both dicts are mutated in place because routes and services hold
+    references to the same dict objects.
     """
-    saved = copy.deepcopy(TASKS)
+    saved_tasks = copy.deepcopy(TASKS)
+    saved_users = copy.deepcopy(USERS)
     yield
     TASKS.clear()
-    TASKS.update(saved)
+    TASKS.update(saved_tasks)
+    USERS.clear()
+    USERS.update(saved_users)
