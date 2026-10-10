@@ -130,7 +130,7 @@ I added this because Claude treated calling `get_user` from `services/tasks.py` 
 | Session | Task | Corrections | Rules Claude cited from CLAUDE.md |
 |---|---|---|---|
 | 1 | Error handling in `get_task` | 0 | lint rule |
-| 2 | Style refactor of `create_task` | 1 (removed added validation) | test rule (new after S1) |
+| 2 | Style refactor of `create_task` | 1 (removed added validation) | test rule (new after S1), lint rule |
 | 3 | New function + tests | 0 | test rule, error rule, Architecture dict rule |
 
 Session 3 needed no corrections on the hardest task of the three (new function, cross-service lookup, new tests), compared with one correction in Session 2. Session 1 also needed none, but it was a single-function fix that the v1 Conventions section described almost exactly. The clearer change is consistency: rules added after a session were cited by Claude in the next one, and the `python` failure from Session 2 did not repeat.
