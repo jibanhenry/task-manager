@@ -1,8 +1,12 @@
 from utils.errors import NotFoundError, ValidationError
 
+NOTIFICATION_PREFS = ("email", "sms", "none")
+
 USERS: dict[int, dict] = {
-    1: {"id": 1, "name": "Alice", "email": "alice@example.com"},
-    2: {"id": 2, "name": "Bob",   "email": "bob@example.com"},
+    1: {"id": 1, "name": "Alice", "email": "alice@example.com",
+        "notification_pref": None},
+    2: {"id": 2, "name": "Bob",   "email": "bob@example.com",
+        "notification_pref": None},
 }
 
 def get_user(user_id: int) -> dict:
@@ -20,6 +24,16 @@ def get_user(user_id: int) -> dict:
     if user_id not in USERS:
         raise NotFoundError("User")
     return USERS[user_id]
+
+
+def list_users() -> list[dict]:
+    """Retrieve all users.
+
+    Returns:
+        A list of all user records as dictionaries.
+    """
+    return list(USERS.values())
+
 
 def create_user(name: str, email: str) -> dict:
     """Create a new user.
@@ -39,5 +53,6 @@ def create_user(name: str, email: str) -> dict:
     if not email or "@" not in email:
         raise ValidationError("email", "must be a valid email address")
     new_id = max(USERS.keys()) + 1
-    USERS[new_id] = {"id": new_id, "name": name, "email": email}
+    USERS[new_id] = {"id": new_id, "name": name, "email": email,
+                     "notification_pref": None}
     return USERS[new_id]

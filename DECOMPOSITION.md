@@ -165,7 +165,7 @@ Filled in after each subagent: fresh session, `git diff --stat`, `pytest -q` out
 
 | SA | Fresh session? | Files actually changed (`git diff --stat`) | `pytest -q` | Constraint kept? / fixes in same session |
 |---|---|---|---|---|
-| SA-1 |  |  |  |  |
+| SA-1 | Yes (`/clear`) | `services/users.py` only (+18 / −3): `NOTIFICATION_PREFS`, `"notification_pref": None` on both seeds and in `create_user`, new `list_users()` | `75 passed` (unchanged; no new tests in this layer) | Yes. No new file, no notification get/update function, `get_user`/`create_user` signatures unchanged. No fixes needed. |
 | SA-2 |  |  |  |  |
 | SA-3 |  |  |  |  |
 | SA-4 |  |  |  |  |
