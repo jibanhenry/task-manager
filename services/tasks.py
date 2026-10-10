@@ -1,3 +1,5 @@
+from typing import Optional
+
 from services.users import get_user
 from utils.errors import NotFoundError, ValidationError
 
@@ -67,6 +69,48 @@ def create_task(title: str, user_id: int, priority: int = 3) -> dict:
                      "done": False, "user_id": user_id,
                      "priority": priority}
     return TASKS[new_id]
+
+
+def update_task(task_id: int, title: Optional[str] = None,
+                done: Optional[bool] = None,
+                priority: Optional[int] = None) -> dict:
+    """Update fields of an existing task.
+
+    Args:
+        task_id: The unique identifier for the task.
+        title: The new title; None leaves it unchanged.
+        done: The new completion state; None leaves it unchanged.
+        priority: The new priority from 1 (most urgent) to 5; None leaves
+            it unchanged.
+
+    Returns:
+        The updated task record.
+
+    Raises:
+        NotFoundError: If no task exists with the given ID.
+        ValidationError: If no field is supplied, or if a supplied field
+            is invalid. No field is changed when this is raised.
+    """
+    if task_id not in TASKS:
+        raise NotFoundError("Task")
+    if title is not None and (not isinstance(title, str)
+                              or not title.strip()):
+        raise ValidationError("title", "cannot be empty")
+    if done is not None and not isinstance(done, bool):
+        raise ValidationError("done", "must be a boolean")
+    if priority is not None:
+        _validate_priority(priority)
+    if title is None and done is None and priority is None:
+        raise ValidationError(
+            "body", "must include at least one of title, done, priority")
+    task = TASKS[task_id]
+    if title is not None:
+        task["title"] = title
+    if done is not None:
+        task["done"] = done
+    if priority is not None:
+        task["priority"] = priority
+    return task
 
 
 def get_tasks_for_user(user_id: int) -> list[dict]:
