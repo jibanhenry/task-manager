@@ -51,13 +51,14 @@ def test_get_users_includes_notification_pref(client):
     body = resp.get_json()
     assert isinstance(body, list)
     assert {1, 2} <= {user["id"] for user in body}
-    assert all("notification_pref" in user for user in body)
+    seed = [user for user in body if user["id"] in (1, 2)]
+    assert all(user["notification_pref"] == "none" for user in seed)
 
 
 def test_get_user_includes_notification_pref(client):
     resp = client.get("/api/users/1")
     assert resp.status_code == 200
-    assert "notification_pref" in resp.get_json()
+    assert resp.get_json()["notification_pref"] == "none"
 
 
 def test_get_notifications_default(client):
