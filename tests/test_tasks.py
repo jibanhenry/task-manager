@@ -75,6 +75,37 @@ def test_create_task_invalid_priority_not_stored():
     assert len(TASKS) == count
 
 
+@pytest.mark.parametrize("title", [None, "", "   ", 123])
+def test_create_task_invalid_title_raises_validation_error(title):
+    with pytest.raises(ValidationError):
+        create_task(title, 1)
+
+
+@pytest.mark.parametrize("user_id", [None, "1", True])
+def test_create_task_invalid_user_id_raises_validation_error(user_id):
+    with pytest.raises(ValidationError):
+        create_task("Plan trip", user_id)
+
+
+def test_create_task_unknown_user_raises_not_found_error():
+    with pytest.raises(NotFoundError):
+        create_task("Plan trip", 999)
+
+
+def test_create_task_invalid_title_not_stored():
+    count = len(TASKS)
+    with pytest.raises(ValidationError):
+        create_task(None, 1)
+    assert len(TASKS) == count
+
+
+def test_create_task_unknown_user_not_stored():
+    count = len(TASKS)
+    with pytest.raises(NotFoundError):
+        create_task("Plan trip", 999)
+    assert len(TASKS) == count
+
+
 def test_seed_tasks_have_priority():
     for task_id in (1, 2, 3):
         assert 1 <= TASKS[task_id]["priority"] <= 5

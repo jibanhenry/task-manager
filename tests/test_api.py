@@ -30,6 +30,26 @@ def test_post_task_invalid_priority_returns_422(client):
     assert "error" in resp.get_json()
 
 
+@pytest.mark.parametrize("kwargs", [
+    {"json": {"user_id": 1}},
+    {"json": {"title": "", "user_id": 1}},
+    {"json": {"title": "Plan trip"}},
+    {},
+    {"data": "not json", "content_type": "text/plain"},
+])
+def test_post_task_missing_or_empty_fields_returns_422(client, kwargs):
+    resp = client.post("/api/tasks", **kwargs)
+    assert resp.status_code == 422
+    assert "error" in resp.get_json()
+
+
+def test_post_task_unknown_user_returns_404(client):
+    resp = client.post("/api/tasks",
+                       json={"title": "Plan trip", "user_id": 999})
+    assert resp.status_code == 404
+    assert "error" in resp.get_json()
+
+
 def test_get_task_includes_priority(client):
     resp = client.get("/api/tasks/1")
     assert resp.status_code == 200

@@ -25,8 +25,8 @@ def get_task_route(task_id):
 
 @api.route("/tasks", methods=["POST"])
 def create_task_route():
-    data = request.get_json()
-    return jsonify(create_task(data["title"], data["user_id"],
+    data = request.get_json(silent=True) or {}
+    return jsonify(create_task(data.get("title"), data.get("user_id"),
                                data.get("priority", 3))), 201
 
 

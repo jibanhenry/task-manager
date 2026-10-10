@@ -48,6 +48,19 @@ def _validate_priority(priority: int) -> None:
         raise ValidationError("priority", "must be an integer from 1 to 5")
 
 
+def _validate_title(title: str) -> None:
+    """Check that a title value is allowed.
+
+    Args:
+        title: The title to check.
+
+    Raises:
+        ValidationError: If title is not a non-empty string.
+    """
+    if not isinstance(title, str) or not title.strip():
+        raise ValidationError("title", "cannot be empty")
+
+
 def list_tasks(priority: Optional[int] = None) -> list[dict]:
     """Retrieve all tasks, optionally filtered by priority.
 
@@ -81,9 +94,15 @@ def create_task(title: str, user_id: int, priority: int = 3) -> dict:
         The newly created task record.
 
     Raises:
-        ValidationError: If priority is not an integer from 1 to 5.
+        ValidationError: If title is missing or empty, user_id is missing
+            or not an integer, or priority is not an integer from 1 to 5.
+        NotFoundError: If no user exists with the given user_id.
     """
+    _validate_title(title)
+    if isinstance(user_id, bool) or not isinstance(user_id, int):
+        raise ValidationError("user_id", "must be an integer")
     _validate_priority(priority)
+    get_user(user_id)
     new_id = max(TASKS.keys()) + 1
     TASKS[new_id] = {"id": new_id, "title": title,
                      "done": False, "user_id": user_id,
@@ -113,9 +132,8 @@ def update_task(task_id: int, title: Optional[str] = None,
     """
     if task_id not in TASKS:
         raise NotFoundError("Task")
-    if title is not None and (not isinstance(title, str)
-                              or not title.strip()):
-        raise ValidationError("title", "cannot be empty")
+    if title is not None:
+        _validate_title(title)
     if done is not None and not isinstance(done, bool):
         raise ValidationError("done", "must be a boolean")
     if priority is not None:
