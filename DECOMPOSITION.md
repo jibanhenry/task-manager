@@ -160,19 +160,58 @@ Follow CLAUDE.md.
 
 ---
 
+## Recovery subagents (written after SA-4, not part of the original plan)
+SA-4 exposed a mismatch the original hand-offs did not cover (see Divergence 2). I fixed it with two more single-layer subagents, each in a fresh session, rather than one session editing both layers.
+
+**SA-1b prompt:**
+```
+You are SA-1b (data-layer fix). Problem found after SA-4: GET /api/users/1 returns
+"notification_pref": null while GET /api/users/1/notifications returns "none".
+Task: In services/users.py only, store the default "none" instead of None for both
+seed users and in create_user, so every endpoint shows "none". The field stays
+nullable (do not reject None elsewhere).
+Constraints:
+- services/users.py is the only file you may edit.
+- Do not touch services/notifications.py, routes/api.py, or any file in tests/.
+When done, run /usr/bin/python3 -m pytest -q and paste the full output.
+Follow CLAUDE.md.
+```
+
+**SA-4b prompt:**
+```
+You are SA-4b (test fix). The notification tests only check that the
+notification_pref key exists on GET /api/users and GET /api/users/1, so a null
+value passed. In tests/test_notifications.py only, make those tests assert the
+value is "none" for seed users.
+Constraints:
+- tests/test_notifications.py is the only file you may edit.
+- Do not touch services/, routes/, or any other test file.
+When done, run /usr/bin/python3 -m pytest -q and paste the full output.
+```
+
 ## Execution log
 Filled in after each subagent: fresh session, `git diff --stat`, `pytest -q` output.
 
 | SA | Fresh session? | Files actually changed (`git diff --stat`) | `pytest -q` | Constraint kept? / fixes in same session |
 |---|---|---|---|---|
 | SA-1 | Yes (`/clear`) | `services/users.py` only (+18 / −3): `NOTIFICATION_PREFS`, `"notification_pref": None` on both seeds and in `create_user`, new `list_users()` | `75 passed` (unchanged; no new tests in this layer) | Yes. No new file, no notification get/update function, `get_user`/`create_user` signatures unchanged. No fixes needed. |
-| SA-2 | Yes (`/clear`) | new `services/notifications.py` only; `services/users.py` untouched | `75 passed` (unchanged; no new tests in this layer) | Yes. Imports only `NOTIFICATION_PREFS` and `get_user` (no `USERS`), updates through the dict `get_user()` returns, no routes. Spot check: `update_notification_pref(1, "fax")` / `None` / `""` → `ValidationError`; user 9 → `NotFoundError`. No fixes needed. |
+| SA-2 | Yes (`/clear`) | new `services/notifications.py` only; `services/users.py` untouched | `75 passed` (unchanged; no new tests in this layer) | Yes. Imports only `NOTIFICATION_PREFS` and `get_user` (no `USERS`), updates through the dict `get_user()` returns, no routes. First attempt: Claude sent the `Write` of `services/notifications.py` and a `Bash` smoke test + `pytest -q` in parallel, although the test depended on the file; I interrupted, which rejected both, and re-pasted the same prompt in the same session. It then said "I ran the test command in parallel with the file write it depended on" and did them one at a time. Spot check: `update_notification_pref(1, "fax")` / `None` / `""` → `ValidationError`; user 9 → `NotFoundError`. |
 | SA-3 | Yes (`/clear`) | `routes/api.py` only (+20 / −1): imports, `GET /users`, `GET` and `PATCH /users/<id>/notifications` | `75 passed` (unchanged; no new tests in this layer) | Yes. Routes only parse and call one service function; task routes unchanged; no files in `services/` or `tests/` touched. Manual check with the test client: PATCH `email` → 200, `fax` / `{}` / non-JSON → 422, user 9 → 404. Found: `GET /api/users/1` returns `"notification_pref": null` while `GET /api/users/1/notifications` returns `"none"` (see Divergence 2). |
 | SA-4 | Yes (`/clear`) | new `tests/test_notifications.py` (21 cases); `tests/conftest.py` fixture now restores `USERS` as well as `TASKS` (renamed `restore_tasks` → `restore_data`) | `96 passed` (75 → 96) | Yes. No production file touched. It reported the `null` vs `"none"` mismatch instead of fixing it ("that's a production change in services/users.py and I'd want your go-ahead first"), but its API tests only assert that the `notification_pref` key is present, so the mismatch passes. All new tests passed on the first run, since SA-1–SA-3 had already written the code. |
+| SA-1b (recovery) | Yes (`/clear`) | `services/users.py` only (+3 / −3): seeds and `create_user` now store `"none"` instead of `None` | `96 passed` | Yes. Did not touch `services/notifications.py`, `routes/api.py` or `tests/`. |
+| SA-4b (recovery) | Yes (`/clear`) | `tests/test_notifications.py` only (+3 / −2): the user list and detail tests now assert `notification_pref == "none"` instead of only checking the key exists | `96 passed` | File boundary kept, but it went beyond the prompt: to prove the new assertions catch the old bug it created a temporary git worktree at commit `059f443` (before SA-1b), ran the tests there (both failed, as expected), then deleted the worktree. Useful evidence, but I never asked it to run git commands. `GET /api/users/1` and `GET /api/users/1/notifications` now both return `"none"`. |
 
 ## Divergence
 1. **Did Claude violate any constraint? Which one, and what did it do instead?**
+   No file boundary was crossed. After each subagent, `git diff --stat` and the commit showed only the files in its Output field: SA-1 `services/users.py`, SA-2 the new `services/notifications.py`, SA-3 `routes/api.py`, SA-4 `tests/test_notifications.py` + `tests/conftest.py`, SA-1b `services/users.py`, SA-4b `tests/test_notifications.py`. I also searched the six Task 2 session transcripts for rejected tool calls: the only two were in SA-2, where Claude sent the `Write` for `services/notifications.py` and a `Bash` smoke test + `pytest -q` at the same time, although the test needed the file; I interrupted, and it redid them one at a time. That is a sequencing mistake, not a boundary violation.
+   The closest thing to a violation was SA-4: its own tests exposed the `null` / `"none"` mismatch, the fix was in `services/users.py`, and it stopped and asked ("that's a production change in services/users.py and I'd want your go-ahead first") instead of editing it. Three actions went beyond the prompts without touching a forbidden file: SA-4 renamed the conftest fixture `restore_tasks` → `restore_data` (I only asked it to extend it); SA-4b created and deleted a temporary git worktree at commit `059f443` to show its new assertions fail on the old code (I never asked for git commands); and SA-4 opened with "your usual workflow is to show tests failing before implementing", a preference I only stated in Task 1, so it reached a `/clear`ed session through Claude's saved memory. My constraints only named files, so none of these was technically a violation, which is itself the gap.
 
 2. **Did any subagent's output break the next subagent's assumptions? How did you recover?**
+   Yes. SA-1 stored `"notification_pref": None` as my prompt said ("None means not set"). SA-2 translated `None` to `"none"` in `get_notification_pref`. SA-3 was told the existing `GET /users/<id>` "already returns the stored record", so it returned it raw. Result: `GET /api/users/1` gave `null` while `GET /api/users/1/notifications` gave `"none"` for the same user. Each subagent followed its own prompt; the "report `None` as `"none"`" rule was only in the SA-1 → SA-2 hand-off and never reached SA-3. SA-4 noticed it but, following "do not fix production code", only reported it, and its API tests asserted just that the key exists, so `pytest -q` stayed green (96 passed) with the bug in place. Recovery, keeping the layer split: SA-1b (fresh session, `services/users.py` only) changed the stored default to `"none"`; SA-4b (fresh session, `tests/test_notifications.py` only) made the user list and detail tests assert the value `"none"`. Still 96 passed, and both endpoints now agree.
 
 3. **What would you change about the decomposition next time?**
+   - Put the external contract in every hand-off, not just the next one: one line copied into SA-1 through SA-4 such as "every endpoint shows `notification_pref` as `email`/`sms`/`none`, never `null`". The bug came from a convention that lived in a single hand-off.
+   - Don't store a sentinel the API must translate: SA-1 should have stored `"none"` from the start, which makes SA-2's `None → "none"` mapping unnecessary.
+   - Move tests to the front: an SA-0 that writes the acceptance tests from the feature spec, before any code, so later subagents go from red to green. SA-4 wrote its tests after reading the implementation, which is why it asserted "key present" instead of the specified value.
+   - Constrain actions, not just files: add "no git commands, no renaming existing names, run only `/usr/bin/python3 -m pytest -q`" to every prompt. My constraints only listed files, so SA-4b's worktree and SA-4's fixture rename were allowed by the letter of the prompt.
+   - Treat Claude's memory as context that survives `/clear`: check or clear saved memories between subagents, or tell each one to ignore them.
