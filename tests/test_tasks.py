@@ -1,6 +1,7 @@
 import pytest
 from services.tasks import process_order, get_task, create_task
 from services.tasks import get_tasks_for_user, update_task, TASKS
+from services.tasks import list_tasks
 from utils.errors import NotFoundError, ValidationError
 
 def test_process_order_valid():
@@ -148,3 +149,30 @@ def test_tasks_restored_between_tests():
     # test_process_order_valid marks task 1 done; the conftest fixture
     # must have restored it.
     assert TASKS[1]["done"] is False
+
+
+def test_list_tasks_returns_all():
+    result = list_tasks()
+    ids = {task["id"] for task in result}
+    assert {1, 2, 3} <= ids
+    assert len(result) == len(TASKS)
+
+
+def test_list_tasks_filter_by_priority():
+    task = create_task("Plan trip", 1, priority=1)
+    result = list_tasks(1)
+    ids = {t["id"] for t in result}
+    assert task["id"] in ids
+    assert all(t["priority"] == 1 for t in result)
+    assert not ids & {1, 2, 3}
+
+
+def test_list_tasks_filter_by_priority_no_match_returns_empty():
+    assert list_tasks(5) == []
+
+
+@pytest.mark.parametrize("priority", [0, 6, "3", True])
+def test_list_tasks_filter_by_priority_invalid_raises_validation_error(
+        priority):
+    with pytest.raises(ValidationError):
+        list_tasks(priority)

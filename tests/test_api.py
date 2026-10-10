@@ -70,3 +70,40 @@ def test_patch_task_empty_or_non_json_body_returns_422(client, kwargs):
     resp = client.patch("/api/tasks/1", **kwargs)
     assert resp.status_code == 422
     assert "error" in resp.get_json()
+
+
+def test_get_tasks_returns_all(client):
+    resp = client.get("/api/tasks")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert isinstance(body, list)
+    assert {1, 2, 3} <= {task["id"] for task in body}
+
+
+def test_get_tasks_filter_by_priority(client):
+    resp = client.get("/api/tasks?priority=3")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body
+    assert all(task["priority"] == 3 for task in body)
+
+    created = client.post("/api/tasks",
+                          json={"title": "Plan trip", "user_id": 1,
+                                "priority": 1})
+    resp = client.get("/api/tasks?priority=1")
+    assert resp.status_code == 200
+    assert [task["id"] for task in resp.get_json()] == \
+        [created.get_json()["id"]]
+
+
+def test_get_tasks_filter_by_priority_no_match_returns_empty(client):
+    resp = client.get("/api/tasks?priority=5")
+    assert resp.status_code == 200
+    assert resp.get_json() == []
+
+
+@pytest.mark.parametrize("value", ["abc", "0", "9", "-1", ""])
+def test_get_tasks_filter_by_priority_invalid_returns_422(client, value):
+    resp = client.get(f"/api/tasks?priority={value}")
+    assert resp.status_code == 422
+    assert "error" in resp.get_json()

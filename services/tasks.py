@@ -48,6 +48,26 @@ def _validate_priority(priority: int) -> None:
         raise ValidationError("priority", "must be an integer from 1 to 5")
 
 
+def list_tasks(priority: Optional[int] = None) -> list[dict]:
+    """Retrieve all tasks, optionally filtered by priority.
+
+    Args:
+        priority: Only return tasks with this priority, from 1 (most
+            urgent) to 5; None returns every task.
+
+    Returns:
+        A list of task records; empty if no task matches.
+
+    Raises:
+        ValidationError: If priority is supplied and is not an integer
+            from 1 to 5.
+    """
+    if priority is not None:
+        _validate_priority(priority)
+    return [task for task in TASKS.values()
+            if priority is None or task["priority"] == priority]
+
+
 def create_task(title: str, user_id: int, priority: int = 3) -> dict:
     """Create a new task.
 
