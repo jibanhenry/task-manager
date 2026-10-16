@@ -1,0 +1,19 @@
+ASSISTANT: I'll check the file's current ending and `AppError`'s signature first, then append.
+TOOL Bash: cat -A utils/errors.py | tail -n 25
+  -> class AppError(Exception):$ |     def __init__(self, message: str, status_code: int = 400):$ |         self.message = message$ |         self.status_code = status_code$ |         super().__init__(self.message)$ | $ | class NotFoundError(AppError):$ |     def __init__(self, resource: str):$ |         super().__init__(f"{resource} not found", status_code=404)$ | $ | class ValidationError(AppError):$ |     def __init__(self, field: str, reason: str):$ |         super().__init__(f"Invalid {field}: {
+ASSISTANT: The file ends with a newline, and `AppError` accepts `status_code`. Appending now.
+TOOL Bash: cat >> utils/errors.py <<'EOF'
+
+
+class RateLimitError(AppError):
+    def __init__(self, message: str = "Too many requests."):
+        super().__init__(message, status_code=429)
+EOF
+tail -n 12 utils/errors.py && /usr/bin/python3 -c "from utils.errors import RateLimitError as R; e=R(); print(e.message, e.status_code)"
+  -> class NotFoundError(AppError): |     def __init__(self, resource: str): |         super().__init__(f"{resource} not found", status_code=404) |  | class ValidationError(AppError): |     def __init__(self, field: str, reason: str): |         super().__init__(f"Invalid {field}: {reason}", status_code=422) |  |  | class RateLimitError(AppError): |     def __init__(self, message: str = "Too many requests."): |         super().__init__(message, status_code=429) | Too many requests. 429
+ASSISTANT: I appended `RateLimitError` to the end of `utils/errors.py`, exactly as you gave it. I left `AppError` and the other classes unchanged.
+
+I confirmed that `RateLimitError()` imports and gives the message `"Too many requests."` with status code `429`. I did not run pytest or flake8, because this was only an append.
+
+Nothing raises it yet, so there's no test for it. If you want it wired into a service, say so, and I'll add a test asserting `pytest.raises(RateLimitError)` first, as CLAUDE.md requires.
+RESULT: success turns 3

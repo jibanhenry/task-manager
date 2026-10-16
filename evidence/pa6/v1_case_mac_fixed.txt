@@ -1,0 +1,31 @@
+TOOL Bash: ls utils/ Utils/ 2>&1; head -5 utils/errors.py
+  -> Utils/: | __init__.py | __pycache__ | errors.py |  | utils/: | __init__.py | __pycache__ | errors.py | class AppError(Exception): |     def __init__(self, message: str, status_code: int = 400): |         self.message = message |         self.status_code = status_code |         super().__init__(self.message)
+TOOL Bash: head -5 Utils/errors.py; diff Utils/errors.py utils/errors.py && echo same; grep -rn "import" routes/api.py | head
+  -> class AppError(Exception): |     def __init__(self, message: str, status_code: int = 400): |         self.message = message |         self.status_code = status_code |         super().__init__(self.message) | same | routes/api.py:1:from flask import Blueprint, jsonify, request | routes/api.py:2:from services.tasks import get_task, create_task, process_order | routes/api.py:3:from services.tasks import update_task, list_tasks | routes/api.py:4:from services.users import get_user, list_users | rout
+TOOL Bash: sed -i '1i """Application error classes used by every service."""\n' utils/errors.py && head -4 utils/errors.py && /usr/bin/python3 -m pytest -q 2>&1 | tail -15
+  -> """Application error classes used by every service.""" |  | class AppError(Exception): |     def __init__(self, message: str, status_code: int = 400): | ........................................................................ [ 39%] | ........................................................................ [ 78%] | ......................................x                                  [100%] | 182 passed, 1 xfailed in 2.02s
+ASSISTANT: I added the docstring to `utils/errors.py` (lowercase), not `Utils/errors.py`, because the repo has both directories.
+
+The two files were identical, and the app imports `from utils.errors import AppError`. `CLAUDE.md` also names the lowercase path. I left `Utils/errors.py` untouched. It looks like a stray duplicate, and I can add the docstring there too or remove it if you want.
+
+The file now starts with:
+
+```python
+"""Application error classes used by every service."""
+
+class AppError(Exception):
+```
+
+I put one blank line after the docstring, so flake8 may flag E302 there. `CLAUDE.md` says the baseline already has E302 warnings and not to reformat, so I left it.
+
+Full test output:
+
+```
+........................................................................ [ 39%]
+........................................................................ [ 78%]
+......................................x                                  [100%]
+182 passed, 1 xfailed in 2.02s
+```
+
+All tests pass. The one xfail is an existing expected failure.
+RESULT: success turns 4

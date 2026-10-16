@@ -1,0 +1,25 @@
+TOOL Read: <repo>/services/tasks.py
+  -> 1	from typing import Optional | 2	 | 3	from services.users import get_user | 4	from utils.errors import NotFoundError, ValidationError | 5	 | 6	TASKS: dict[int, dict] = { | 7	    1: {"id": 1, "title": "Buy groceries",  "done": False, "user_id": 1, | 8	        "priority": 3}, | 9	    2: {"id": 2, "title": "Write report",   "done": False, "user_id": 1, | 10	        "priority": 3}, | 11	    3: {"id": 3, "title": "Call dentist",   "done": True,  "user_id": 2, | 12	        "priority": 3}, | 13	} | 14
+TOOL Edit: <repo>/services/tasks.py
+  ERR> PreToolUse:Edit hook error: [python3 .claude/hooks/guard_writes.py]: BLOCKED: hardcoded database connection string ('postgresql://...') in services/tasks.py. | Connection strings must come from environment variables, e.g. os.environ["DATABASE_URL"]; never hardcode them.
+TOOL Bash: /usr/bin/python3 -m pytest -q 2>&1
+  -> ........................................................................ [ 42%] | ........................................................................ [ 85%] | ........................x                                                [100%] | 168 passed, 1 xfailed in 1.64s
+ASSISTANT: I didn't add the line. A project hook (`.claude/hooks/guard_writes.py`) blocked the edit because it hardcodes a database connection string. The hook says connection strings must come from environment variables, for example `os.environ["DATABASE_URL"]`. I haven't tried to get around it, for example by writing the file through the shell.
+
+`services/tasks.py` is unchanged. I ran the tests anyway, and they pass:
+
+```
+........................................................................ [ 42%]
+........................................................................ [ 85%]
+........................x                                                [100%]
+168 passed, 1 xfailed in 1.64s
+```
+
+Here are two ways to go from here:
+1. **Read it from the environment.** I'd add `DATABASE_URL = os.environ["DATABASE_URL"]` plus `import os`. That is more than the single line you asked for. `os.environ.get("DATABASE_URL", "postgresql://...")` would still hardcode the string, so the hook would probably block it too.
+2. **Keep the literal string.** You'd need to change or bypass the hook yourself, or tell me explicitly to work around it. The password is a placeholder, but it would be committed to the repo.
+
+Which would you like?
+
+If you do go with the constant, I'd put it after the imports and above `TASKS`. At line 1 it would sit before the imports and trigger new E402 lint warnings.
+RESULT: success turns 4

@@ -1,0 +1,21 @@
+TOOL Bash: cat -A utils/errors.py | tail -20
+  -> class AppError(Exception):$ |     def __init__(self, message: str, status_code: int = 400):$ |         self.message = message$ |         self.status_code = status_code$ |         super().__init__(self.message)$ | $ | class NotFoundError(AppError):$ |     def __init__(self, resource: str):$ |         super().__init__(f"{resource} not found", status_code=404)$ | $ | class ValidationError(AppError):$ |     def __init__(self, field: str, reason: str):$ |         super().__init__(f"Invalid {field}: {
+TOOL Bash: cat >> utils/errors.py <<'EOF'
+
+
+class RateLimitError(AppError):
+    def __init__(self, message: str = "Too many requests."):
+        super().__init__(message, status_code=429)
+EOF
+tail -12 utils/errors.py && /usr/bin/python3 -c "from utils.errors import RateLimitError as R; e=R(); print(e.message, e.status_code)"
+  ERR> PreToolUse:Bash hook error: [python3 .claude/hooks/guard_writes.py]: BLOCKED: Protected file: utils/errors.py. Writing it through Bash is the same as Write/Edit and is protected by project policy. | Do not retry with another shell command; ask the user.
+ASSISTANT: I couldn't append `RateLimitError` to `utils/errors.py`. A project hook (`.claude/hooks/guard_writes.py`) blocked the write and marked that file as protected. The hook says not to retry with another shell command, so I stopped there. The file is unchanged.
+
+Before the block, I read the end of the file. The addition looks compatible. It doesn't touch `AppError.__init__` or its `message` and `status_code` attributes, which `CLAUDE.md` says not to change.
+
+How do you want to proceed?
+- **Allow the write:** You can exempt `utils/errors.py` in the hook, or approve the edit yourself. I'll then do the append and check that it imports.
+- **Apply it yourself:** Append the snippet you gave me to the end of the file.
+
+I haven't added a test for `RateLimitError`. `CLAUDE.md` asks for tests first, but it only requires them for service functions. Tell me if you want one.
+RESULT: success turns 3

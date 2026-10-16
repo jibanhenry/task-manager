@@ -4,6 +4,7 @@ from services.tasks import update_task, list_tasks
 from services.users import get_user, list_users
 from services.notifications import get_notification_pref
 from services.notifications import update_notification_pref
+from services.tags import create_tag, list_tags
 from utils.errors import AppError
 
 api = Blueprint("api", __name__)
@@ -59,3 +60,14 @@ def update_notification_pref_route(user_id):
     data = request.get_json(silent=True) or {}
     result = update_notification_pref(user_id, data.get("notification_pref"))
     return jsonify(result)
+
+
+@api.route("/tags", methods=["POST"])
+def create_tag_route():
+    data = request.get_json(silent=True) or {}
+    return jsonify(create_tag(data.get("name"))), 201
+
+
+@api.route("/tags", methods=["GET"])
+def list_tags_route():
+    return jsonify(list_tags())

@@ -1,0 +1,87 @@
+--- guard_before_v2fix.py	2026-10-16 12:12:39.282667713 -0400
++++ .claude/hooks/guard_writes.py	2026-10-16 12:13:29.132659803 -0400
+@@ -120,6 +120,65 @@
+     return False
+ 
+ 
++# Commands whose every non-flag argument is a file they write/delete.
++WRITE_ALL_ARGS = {"tee", "touch", "truncate", "rm", "unlink", "shred"}
++# Commands that write their LAST argument (the destination).
++WRITE_LAST_ARG = {"cp", "mv", "install", "ln", "rsync"}
++# In-place editors: write every file argument when -i is present.
++IN_PLACE = {"sed", "perl", "gsed"}
++REDIRECT = re.compile(r"^(?:\d|&)?>>?(.*)$")      # >, >>, 2>, &>, >>file
++# Fallback for interpreters only: python -c "open('utils/errors.py', 'w')".
++# Shell redirections are parsed exactly above, so `2>&1` is NOT a hint.
++WRITE_HINT = re.compile(r"open\([^)]*['\"][wa+]|write_text|\.write\(")
++
++
++def bash_write_targets(command: str) -> list[str]:
++    """Paths a Bash command would write to (best effort, token level)."""
++    targets = []
++    cwd = PROJECT_DIR
++    for tokens in segments(command):
++        name = os.path.basename(tokens[0])
++        args = tokens[1:]
++        if name == "cd" and args:                 # track `cd utils && ...`
++            cwd = os.path.join(cwd, args[0])
++            continue
++        start = len(targets)
++        for i, tok in enumerate(tokens):          # redirections
++            m = REDIRECT.match(tok)
++            if m and not tok.startswith(">&"):
++                if m.group(1):
++                    targets.append(m.group(1))
++                elif i + 1 < len(tokens):
++                    targets.append(tokens[i + 1])
++        plain = [a for a in args if not a.startswith("-")
++                 and not REDIRECT.match(a)]
++        if name in WRITE_ALL_ARGS or (
++                name in IN_PLACE and any(a.startswith("-i") for a in args)):
++            targets.extend(plain)
++        elif name in WRITE_LAST_ARG and plain:
++            targets.append(plain[-1])
++        elif name == "dd":
++            targets.extend(a[3:] for a in args if a.startswith("of="))
++        targets[start:] = [os.path.join(cwd, t) for t in targets[start:]]
++    return targets
++
++
++def bash_touches_protected(command: str) -> tuple[bool, str]:
++    """Path guard for Bash: Vector 2 in HOOK_LOG.md."""
++    for target in bash_write_targets(command):
++        blocked, reason = is_blocked(target)
++        if blocked:
++            return True, reason
++    # Interpreter one-liners hide the target inside a string; if a
++    # protected path is named AND something looks like a write, block.
++    lowered = command.lower()
++    for pattern in BLOCKED_PATHS:
++        named = pattern.lower().rstrip("/") in lowered
++        if named and WRITE_HINT.search(command):
++            return True, f"Protected path {pattern} named in a writing command"
++    return False, ""
++
++
+ def check_bash(command: str) -> tuple[bool, str]:
+     """Return (blocked, reason) for a Bash command string."""
+     for regex, why in DANGEROUS_COMMANDS:
+@@ -159,11 +218,17 @@
+     tool_input = payload.get("tool_input", {}) or {}
+ 
+     if tool == "Bash":
+-        blocked, reason = check_bash(tool_input.get("command", ""))
++        command = tool_input.get("command", "")
++        blocked, reason = check_bash(command)
+         if blocked:
+             block([f"BLOCKED: {reason}.",
+                    "This command is prohibited by guard_writes.py. Ask the "
+                    "user to run it themselves if it is really needed."])
++        blocked, reason = bash_touches_protected(command)
++        if blocked:
++            block([f"BLOCKED: {reason}. Writing it through Bash is the same "
++                   "as Write/Edit and is protected by project policy.",
++                   "Do not retry with another shell command; ask the user."])
+         sys.exit(0)
+ 
+     # Only inspect file-write tools

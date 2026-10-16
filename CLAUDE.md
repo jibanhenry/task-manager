@@ -10,6 +10,16 @@ Flask API for tasks and users. In-memory data, no database.
   all tests must pass. Paste the full output.
 - Lint: `/usr/bin/python3 -m flake8 .` — the baseline already has E302/F401
   warnings; only fix warnings on lines you changed, do not reformat whole files
+- Slash commands (`.claude/commands/`, type `/project:<name>` or `/<name>`):
+  - `/project:audit-errors services/X.py` — replace raw exceptions and
+    unchecked indexing in one service file with `NotFoundError` /
+    `ValidationError`; skips functions that are already correct.
+  - `/project:scaffold-endpoint <resource> <METHOD>` (e.g. `tags POST`) — add
+    one endpoint across `routes/api.py`, `services/<resource>.py` and
+    `schemas/<resource>.py`, tests first.
+  - `/project:fill-tests services/X.py` — tests-only: add missing tests to
+    `tests/test_X.py`; a test that exposes a bug is marked xfail and
+    reported, never fixed in the service.
 
 ## Architecture
 Layered: routes → services → repositories.
@@ -54,21 +64,38 @@ Layered: routes → services → repositories.
   hints and layout. Do not add validation or change what a function raises
   or returns; list any behavior change you think is needed and ask first.
 
+## Hooks
+`.claude/hooks/guard_writes.py` is a PreToolUse hook (registered in
+`.claude/settings.json` for `Write|Edit|MultiEdit|Bash`) that blocks a tool
+call with exit 2 and tells Claude why on stderr. It enforces three rules:
+(1) no writes — via Write/Edit/MultiEdit or Bash redirection, `tee`,
+`sed -i`, `cp`/`mv`, `rm`, etc. — to the paths in `BLOCKED_PATHS`
+(`utils/errors.py`, `migrations/`, `.env`, `.claude/settings.json`,
+`requirements.txt`, `tests/conftest.py`), compared case-insensitively after
+resolving symlinks; (2) no Bash commands in `DANGEROUS_COMMANDS` (`DROP`/
+`TRUNCATE TABLE`, `git push --force`) or `rm -rf` in any form;
+(3) no hardcoded `postgresql://` / `sqlite:///` strings written into the
+files in `CONTENT_GUARDED` (`services/tasks.py`). To add a rule: append a
+project-relative path to `BLOCKED_PATHS` (end a directory with `/`), a
+`(re.compile(r"\b...\b"), "reason")` tuple to `DANGEROUS_COMMANDS`, or a
+file to `CONTENT_GUARDED`; then add a blocked and an allowed case to
+`tests/test_guard_writes.py`, run `/usr/bin/python3 -m pytest -q`, and
+restart Claude Code (check `/hooks` lists the guard). Claude cannot edit
+`.claude/settings.json` itself, so a human makes registration changes.
+
 ## Do not touch
-- `utils/errors.py`: do not change `AppError.__init__`'s signature or its
-  `message`/`status_code` attributes — `handle_app_error` reads them.
+(`utils/errors.py`, `requirements.txt` and `tests/conftest.py` are no longer
+listed here: `.claude/hooks/guard_writes.py` blocks every write to them —
+see ## Hooks.)
 - Seed records in `TASKS` and `USERS`: tests depend on task ids 1 and 2.
 - Existing function signatures in `services/` — `routes/api.py` calls them
   directly. Do not rename or reorder parameters.
 - Do not edit existing assertions in `tests/test_tasks.py` to make a change
   pass. Fix the code instead; ask before changing a test.
-- `requirements.txt`: do not add dependencies without asking.
 - In a tests-only task, do not edit `services/users.py`,
   `services/notifications.py`, `services/tasks.py` or `routes/api.py` to make a
   test pass. Report the production bug and stop (PA5 SA-4 hit exactly this:
   its tests exposed a bug whose fix was in `services/users.py`).
-- `tests/conftest.py`: do not rename the autouse fixture `restore_data` or
-  drop its `TASKS`/`USERS` restore; every test file relies on it.
 - `services/users.py` is the only file that touches `USERS`; notification
   logic belongs in `services/notifications.py`, which uses `get_user()`.
 - Do not run git commands (`git worktree`, `git stash`, `git checkout`,

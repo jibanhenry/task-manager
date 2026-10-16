@@ -1,0 +1,53 @@
+--- guard_partA_v1.py	2026-10-16 12:09:46.798192517 -0400
++++ .claude/hooks/guard_writes.py	2026-10-16 12:09:46.811155144 -0400
+@@ -88,18 +88,27 @@
+ 
+ 
+ def rm_is_recursive_force(tokens: list[str]) -> bool:
+-    """True if tokens are an `rm` call with both recursive and force flags."""
+-    if os.path.basename(tokens[0]) != "rm":
+-        return False
+-    flags = set()
+-    for tok in tokens[1:]:
+-        if tok == "--recursive":
+-            flags.add("r")
+-        elif tok == "--force":
+-            flags.add("f")
+-        elif tok.startswith("-") and not tok.startswith("--"):
+-            flags.update(tok[1:].lower())
+-    return {"r", "f"} <= flags
++    """True if any `rm` in tokens has both recursive and force flags.
++
++    `rm` is looked for at every position, not only as the first word, so
++    `find . -exec rm -rf {} +` and `xargs rm -rf` are caught too.
++    """
++    for i, tok in enumerate(tokens):
++        if os.path.basename(tok) != "rm":
++            continue
++        flags = set()
++        for arg in tokens[i + 1:]:
++            if arg == "--recursive":
++                flags.add("r")
++            elif arg == "--force":
++                flags.add("f")
++            elif arg.startswith("-") and not arg.startswith("--"):
++                flags.update(arg[1:].lower())
++            elif arg in ("{}", "+", ";", "--"):
++                break
++        if {"r", "f"} <= flags:
++            return True
++    return False
+ 
+ 
+ def check_bash(command: str) -> tuple[bool, str]:
+@@ -110,6 +119,10 @@
+     for tokens in segments(command):
+         if rm_is_recursive_force(tokens):
+             return True, "Prohibited command (rm -rf: recursive force delete)"
++        # A quoted argument may itself be a command: bash -c "rm -rf x"
++        for tok in tokens:
++            if " " in tok.strip() and check_bash(tok)[0]:
++                return check_bash(tok)
+     return False, ""
+ 
+ 

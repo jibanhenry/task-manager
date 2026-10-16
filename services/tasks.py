@@ -13,6 +13,19 @@ TASKS: dict[int, dict] = {
 }
 
 def process_order(task_id: int) -> dict:
+    """Mark a task as done.
+
+    Args:
+        task_id: The unique identifier for the task.
+
+    Returns:
+        The updated task record.
+
+    Raises:
+        NotFoundError: If no task exists with the given ID.
+    """
+    if task_id not in TASKS:
+        raise NotFoundError("Task")
     task = TASKS[task_id]
     task["done"] = True
     return task

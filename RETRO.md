@@ -1,13 +1,106 @@
-# RETRO — PA5: Plan, Decompose, and Supervise
+# RETRO — PA6: Enforce, Automate, and Reflect
 
-## 1. Which plan amendment prevented a rollback?
-PLAN_LOG session 1. Claude's plan put the 1–5 range check inline in `create_task` in `services/tasks.py`. I amended it to extract `_validate_priority()` because I knew `PATCH /tasks/<id>` was next. The helper was then reused with no refactoring: by `update_task` in session 2 and by `list_tasks` in session 3 (`plans/session2_plan.md`: "`_validate_priority(priority)`, which reuses the session 1 helper"; `plans/session3_plan_original.md`: "Reuses `_validate_priority`"). Without the amendment, session 2 would have either copied the check into `update_task` or reopened `create_task`, which is already called by `routes/api.py` and covered by the session 1 tests, to pull it out. Session 4 followed the same pattern. Claude's plan said the new title check was the "same check/message as update_task", so I required a shared `_validate_title()`. Its behaviour in `update_task` stayed identical, and the existing tests passed unmodified (75 passed).
+(The PA5 retrospective is kept as `RETRO_PA5.md`.)
 
-## 2. What did the divergent session show about the limits of Plan Mode?
-PLAN_LOG session 1 is the row where the output did not match the amended plan. The plan said `python3 -m pytest -q`, but Claude ran `/usr/bin/python3` because `python3` on my Mac is Homebrew 3.13 without pytest. It also "wrote 1 memory" that no plan step mentioned. The pattern continued: session 3 showed "Wrote 2 memories" during the planning phase, before I approved anything, and in session 4 the amended plan gained an "After approval: save a feedback memory" step I never asked for. Plan Mode is reliable for the code edits the plan lists, and every one of those diffs matched. It does not cover two things. First, side effects the plan doesn't mention: memory writes and environment workarounds. Second, anything after `/clear`. The `-q` I required in sessions 1–2 was back to `pytest -v` in the session 3 plan, and tests-first had disappeared from the session 4 plan, because both lived only in my amendments while CLAUDE.md still said `pytest -v`. An amendment is a one-session instruction. Rules meant to last belong in CLAUDE.md, which is why the `## Commands` and Conventions sections now carry them.
+## 1. Slash command value — which command saved the most prompt-writing effort?
 
-## 3. Which subagent boundary mattered most?
-The boundary between SA-4 (tests) and production code: "Only `tests/test_notifications.py` and `tests/conftest.py` may be created or edited… If a test fails because of production code, stop and report it." SA-4 found that `GET /api/users/1` returned `"notification_pref": null` while `GET /api/users/1/notifications` returned `"none"`. The fix was in `services/users.py`, and SA-4 stopped and wrote "that's a production change in services/users.py and I'd want your go-ahead first." That turned a hidden inconsistency into a decision I made, fixed with SA-1b and SA-4b (DECOMPOSITION.md, Divergence 2). In a single session, the same context would have written the code and then tests that describe that code. SA-4 already showed the risk: having read the implementation, it asserted only that the key exists, and 96 tests passed with the bug still there. One session would either have shipped that green-but-wrong state or silently changed the stored default with nobody deciding it. The boundary forced a hand-off point where the mismatch had to be reported.
+`/project:scaffold-endpoint` saved the most effort (COMMAND_LOG.md, the
+scaffold-endpoint row; iteration rows 5–6). The second invocation was two
+words, `tags GET`. Without the command, the ad-hoc prompt would have had to
+re-state everything the file now carries:
 
-## 4. Which constraint do I most want enforced mechanically?
-"The test subagent may not edit production files." Today it holds only because SA-4 chose to obey it, and SA-4b shows the limit: within its one allowed file it still ran `git worktree` on its own, because my constraints named files, not actions. I want this enforced with a **PreToolUse hook on `Edit|Write|MultiEdit|Bash`. It reads the allowed-path list for the current subagent from `.claude/scope.txt` (for SA-4: `tests/`). It exits with code 2, blocking the call with "outside SA scope: <path>", whenever an edit's `file_path` is not under an allowed path or a Bash command starts with `git`.**
+- the three target files (`routes/api.py`, `services/tags.py`,
+  `schemas/tags.py`);
+- that the `/tasks` handlers in `routes/api.py` are the pattern (this repo has
+  no `routes/tasks.py`);
+- the no-business-logic rule for routes;
+- "schema is plain constants, no marshmallow";
+- tests first with the exact 201/200/422/404 status codes;
+- the `/usr/bin/python3` pytest command;
+- since v2, the warning that `restore_data` does not reset new stores.
+
+That is roughly 30 lines, retyped every time and slightly different each time.
+The command is better for two reasons. First, the lesson from one run is
+carried into the next. The v2 Constraint I added after the `tags POST` run
+(row 5: `TAGS` not restored between tests) made the `tags GET` run report
+"conftest needs TAGS restore" without being asked. An ad-hoc prompt would have
+lost that fix after `/clear`, as `-q` and tests-first were lost in PA5.
+Second, a fixed text lets me fix one specific failure, such as the
+audit-errors idempotency gap (rows 3→4), and check the fix the next time it
+runs.
+
+## 2. Hook reliability — what happened during the Part B bypass attempts?
+
+Both vectors bypassed the hook before the fixes (HOOK_LOG.md).
+
+- **Vector 1.** I asked Claude to "Modify Utils/errors.py". It checked
+  `ls -di Utils utils`, saw that the two paths are the same file, and ran
+  `sed -i … Utils/errors.py`. The protected `utils/errors.py` changed even
+  though my Mac reports `Utils/errors.py` and `utils/errors.py` as one inode
+  (74).
+- **Vector 2.** `cat >> utils/errors.py <<'EOF'` appended a class with the
+  hook registered and Bash already in the matcher, because the Bash branch
+  only looked for dangerous commands and never for write targets.
+- **Same pattern elsewhere.** The Drill 2 template blocked nothing (absolute
+  vs relative path), and the Part A `rm -rf` rule missed
+  `find … -exec rm -rf {} +`.
+
+So "the rule is in settings.json" only means the script runs. Whether it
+enforces anything depends on two things: the matcher seeing the tool Claude
+actually picks, and the script's comparison matching how the OS and the
+shell interpret the path. Claude chose Bash heredocs on its own in Drill 2
+Phase 4 and in both scaffold runs (COMMAND_LOG.md, last note), so a
+`Write|Edit|MultiEdit` matcher covered only part of the real writes. A hook
+counts as enforced only once a bypass attempt against it has failed, and
+the fix itself needs testing: my first Vector 2 fix blocked a read-only
+`ls … 2>&1; head utils/errors.py`.
+
+## 3. Advisory vs deterministic — a rule I left in CLAUDE.md on purpose
+
+I left this rule advisory: "In a tests-only task, do not edit
+`services/users.py`, `services/notifications.py`, `services/tasks.py` or
+`routes/api.py` to make a test pass."
+
+It depends on the task, not the path. `/project:audit-errors` (row 2) and
+`/project:scaffold-endpoint` (rows 5–6) must edit exactly those files. A
+PreToolUse hook only sees one tool call's JSON and cannot tell whether this
+session is a tests-only one. Adding those paths to `BLOCKED_PATHS` would block
+legitimate work. The advisory rule has held so far: `/project:fill-tests`
+(row 7) found the real `create_user` bug, marked it `xfail(strict=True)` and
+left `services/users.py` untouched. The `fill-tests` command also repeats the
+rule in its Constraints.
+
+**Graduation condition:** I will move this rule into `guard_writes.py`
+as soon as either of these happens:
+
+- (a) Any `fill-tests` row in COMMAND_LOG.md records "Stayed in scope = No"
+  because a production file was edited.
+- (b) I add a second tests-only command.
+
+The implementation is ready to write. `/project:fill-tests` writes `tests/`
+to `.claude/scope.txt` as its first step, the hook blocks writes outside the
+paths listed there while the file exists, and the command deletes the file in
+its Verification step. This is the scope-file design from RETRO_PA5.md §4.
+
+## 4. Limits of hooks — a rule PreToolUse could not enforce
+
+The rule I wanted enforced is CLAUDE.md's "run `pytest -q` before finishing
+any task; all tests must pass." The Drill 2 Phase 3 re-run shows why. Claude
+first wrote `tests/test_errors.py` for `RateLimitError`. The hook then blocked
+the edit to `utils/errors.py`, and Claude stopped. It left the repo with a
+test file that failed at collection (`ImportError: cannot import name
+'RateLimitError'`). Its report mentioned this, but nothing forced it to clean
+up.
+
+PreToolUse is the wrong event for this. It fires before each single tool call
+and sees only that call's input. "The session ends with a green suite" is a
+property of the end state, and no single Write, Edit or Bash call carries it.
+Running pytest before every call would test the code before the change, not
+after.
+
+The right mechanism is a **Stop hook**, which fires when Claude tries to
+finish. It would run `/usr/bin/python3 -m pytest -q`; on failure it would exit
+2 with the failing test names, so Claude has to continue and either fix the
+code or remove the orphaned test. A PostToolUse hook on `services/` edits
+would give earlier feedback. CI on push is the backstop for anything a local
+hook misses.

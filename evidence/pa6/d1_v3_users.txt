@@ -1,0 +1,24 @@
+TOOL Read: <repo>/services/users.py
+  -> 1	from utils.errors import NotFoundError, ValidationError | 2	 | 3	NOTIFICATION_PREFS = ("email", "sms", "none") | 4	 | 5	USERS: dict[int, dict] = { | 6	    1: {"id": 1, "name": "Alice", "email": "alice@example.com", | 7	        "notification_pref": "none"}, | 8	    2: {"id": 2, "name": "Bob",   "email": "bob@example.com", | 9	        "notification_pref": "none"}, | 10	} | 11	 | 12	def get_user(user_id: int) -> dict: | 13	    """Retrieve a user by ID. | 14	 | 15	    Args: | 16	        user_id: T
+TOOL Bash: cat utils/errors.py && ls tests && /usr/bin/python3 -m pytest -q 2>&1 | tail -15
+  -> class AppError(Exception): |     def __init__(self, message: str, status_code: int = 400): |         self.message = message |         self.status_code = status_code |         super().__init__(self.message) |  | class NotFoundError(AppError): |     def __init__(self, resource: str): |         super().__init__(f"{resource} not found", status_code=404) |  | class ValidationError(AppError): |     def __init__(self, field: str, reason: str): |         super().__init__(f"Invalid {field}: {reason}", st
+ASSISTANT: No changes needed. I edited nothing, and every function in `services/users.py` already handles errors with `AppError` subclasses.
+
+| function | changed? | why |
+|---|---|---|
+| `get_user` | no | It checks `if user_id not in USERS:` before indexing and raises `NotFoundError("User")`. This is the canonical pattern. |
+| `list_users` | no | It has no `raise` and no indexing. |
+| `create_user` | no | Bad name or email raises `ValidationError`. There is no raw `raise`, and the only indexing, `USERS[new_id]`, reads a key it has just assigned. |
+
+**Not changed** (edge cases the functions don't attempt today, so the constraints rule them out):
+- `create_user` calls `max(USERS.keys())`, which raises a raw `ValueError` if `USERS` is ever empty. That can't happen with the seed data, but a guard would be new behavior.
+- `create_user` calls `name.strip()` and `"@" not in email`. A non-string `name` raises `AttributeError`, and a non-string `email` such as an int raises `TypeError`. Handling these would need new `isinstance` checks.
+
+The existing tests didn't need any new tests, because I changed no function and none raises something new. I ran the suite once, before any edit, since there were no per-function changes to verify:
+
+```
+........................................................................ [ 74%]
+.........................                                                [100%]
+97 passed in 0.20s
+```
+RESULT: success turns 3

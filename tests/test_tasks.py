@@ -12,6 +12,11 @@ def test_process_order_invalid():
     with pytest.raises(Exception):
         process_order(999)
 
+def test_process_order_not_found_raises_not_found_error():
+    with pytest.raises(NotFoundError):
+        process_order(999)
+
+
 def test_get_task_valid():
     result = get_task(2)
     assert result["title"] == "Write report"

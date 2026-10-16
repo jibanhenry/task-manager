@@ -1,0 +1,22 @@
+diff --git a/services/users.py b/services/users.py
+index bc2f20d..00ca479 100644
+--- a/services/users.py
++++ b/services/users.py
+@@ -46,13 +46,13 @@ def create_user(name: str, email: str) -> dict:
+         The newly created user record.
+ 
+     Raises:
+-        ValidationError: If name or email is empty.
++        ValidationError: If name or email is empty or not a string.
+     """
+-    if not name or not name.strip():
++    if not isinstance(name, str) or not name.strip():
+         raise ValidationError("name", "cannot be empty")
+-    if not email or "@" not in email:
++    if not isinstance(email, str) or "@" not in email:
+         raise ValidationError("email", "must be a valid email address")
+-    new_id = max(USERS.keys()) + 1
++    new_id = max(USERS.keys(), default=0) + 1
+     USERS[new_id] = {"id": new_id, "name": name, "email": email,
+                      "notification_pref": "none"}
+     return USERS[new_id]

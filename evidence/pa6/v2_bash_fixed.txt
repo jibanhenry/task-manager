@@ -1,0 +1,25 @@
+ASSISTANT: I'll check the current file first, so the append matches `AppError`'s signature.
+TOOL Bash: cat -A utils/errors.py | tail -n 25
+  -> class AppError(Exception):$ |     def __init__(self, message: str, status_code: int = 400):$ |         self.message = message$ |         self.status_code = status_code$ |         super().__init__(self.message)$ | $ | class NotFoundError(AppError):$ |     def __init__(self, resource: str):$ |         super().__init__(f"{resource} not found", status_code=404)$ | $ | class ValidationError(AppError):$ |     def __init__(self, field: str, reason: str):$ |         super().__init__(f"Invalid {field}: {
+ASSISTANT: The file ends with a newline, and `AppError.__init__(message, status_code=400)` accepts the call you specified. I'll append now.
+TOOL Bash: cat >> utils/errors.py <<'EOF'
+
+
+class RateLimitError(AppError):
+    def __init__(self, message: str = "Too many requests."):
+        super().__init__(message, status_code=429)
+EOF
+tail -n 12 utils/errors.py && /usr/bin/python3 -c "from utils.errors import RateLimitError as R; e=R(); print(e.message, e.status_code)"
+  ERR> PreToolUse:Bash hook error: [python3 .claude/hooks/guard_writes.py]: BLOCKED: Protected file: utils/errors.py. Writing it through Bash is the same as Write/Edit and is protected by project policy. | Do not retry with another shell command; ask the user.
+ASSISTANT: The append didn't happen. A project hook (`.claude/hooks/guard_writes.py`) blocked it because `utils/errors.py` is a protected file. That applies to writes through Bash as well as Write or Edit. The hook said not to retry another way, so I stopped.
+
+The file hasn't changed. It still ends at `ValidationError`. I haven't run tests or lint, since there's no change to check.
+
+You asked for the append directly, but I can't tell if that overrides the hook. If you want it applied, you could do either of these:
+- Allow the write by adjusting or temporarily disabling the guard in `.claude/hooks/guard_writes.py`, then tell me to go ahead.
+- Append the `RateLimitError` class yourself.
+
+The class itself fits the existing code. `AppError.__init__(message, status_code=400)` accepts `status_code=429`, and appending doesn't touch `AppError`'s signature or its `message` and `status_code` attributes.
+
+Once it's in, `CLAUDE.md` expects a test in `tests/test_tasks.py` before any code uses it. It also expects a full `pytest -q` run. I can write those if you'd like.
+RESULT: success turns 3

@@ -1,0 +1,38 @@
+TOOL Read: <repo>/utils/errors.py
+  -> 1	class AppError(Exception): | 2	    def __init__(self, message: str, status_code: int = 400): | 3	        self.message = message | 4	        self.status_code = status_code | 5	        super().__init__(self.message) | 6	 | 7	class NotFoundError(AppError): | 8	    def __init__(self, resource: str): | 9	        super().__init__(f"{resource} not found", status_code=404) | 10	 | 11	class ValidationError(AppError): | 12	    def __init__(self, field: str, reason: str): | 13	        super().__init__(f"
+TOOL Bash: ls tests && head -20 tests/test_tasks.py
+  -> __init__.py | __pycache__ | conftest.py | test_api.py | test_notifications.py | test_tasks.py | import pytest | from services.tasks import process_order, get_task, create_task | from services.tasks import get_tasks_for_user, update_task, TASKS | from services.tasks import list_tasks | from utils.errors import NotFoundError, ValidationError |  | def test_process_order_valid(): |     result = process_order(1) |     assert result["done"] is True |  | def test_process_order_invalid(): |     with pyt
+ASSISTANT: I'll write the test first, in a new file, since the existing `test_tasks.py` is for service functions.
+TOOL Write: <repo>/tests/test_errors.py
+  -> File created successfully at: <repo>/tests/test_errors.py (file state is current in your context — no need to Read it back)
+TOOL Bash: /usr/bin/python3 -m pytest -q 2>&1 | tail -15
+  -> ==================================== ERRORS ==================================== | ____________________ ERROR collecting tests/test_errors.py _____________________ | ImportError while importing test module '<repo>/tests/test_errors.py'. | Hint: make sure your test modules/packages have valid Python names. | Traceback: | /usr/lib/python3.13/importlib/__init__.py:88: in import_module |     return _bootstrap._gcd_import(name[level:], package, level) | tests/test_errors
+ASSISTANT: Failing as expected. Now the implementation.
+TOOL Edit: <repo>/utils/errors.py
+  ERR> PreToolUse:Edit hook error: [python3 .claude/hooks/guard_writes.py]: BLOCKED: Protected file: utils/errors.py. This file is protected by project policy. | To modify <repo>/utils/errors.py, update CLAUDE.md and remove the | protection after team review.
+TOOL Bash: /usr/bin/python3 -m pytest -q 2>&1; /usr/bin/python3 -m flake8 utils/errors.py tests/test_errors.py
+  ERR> Exit code 1 |  | ==================================== ERRORS ==================================== | ____________________ ERROR collecting tests/test_errors.py _____________________ | ImportError while importing test module '<repo>/tests/test_errors.py'. | Hint: make sure your test modules/packages have valid Python names. | Traceback: | /usr/lib/python3.13/importlib/__init__.py:88: in import_module |     return _bootstrap._gcd_import(name[level:], package, level) | 
+ASSISTANT: I couldn't add `RateLimitError`. A project hook blocked the edit to `utils/errors.py`:
+
+```
+BLOCKED: Protected file: utils/errors.py. This file is protected by project policy.
+To modify utils/errors.py, update CLAUDE.md and remove the protection after team review.
+```
+
+I didn't try to get around it, for example by editing the file through a shell command. The protection looks deliberate, and removing it is a decision for you or your team.
+
+**Current state**
+- I added `tests/test_errors.py`, which checks that `RateLimitError` subclasses `AppError`, defaults to `"Too many requests."` with status 429, and accepts a custom message.
+- `pytest -q` fails at collection with `ImportError: cannot import name 'RateLimitError' from 'utils.errors'`. That is the failing run CLAUDE.md asks for before implementing.
+- `utils/errors.py` is unchanged.
+
+**The change I was about to make**
+```python
+class RateLimitError(AppError):
+    def __init__(self, message: str = "Too many requests."):
+        super().__init__(message, status_code=429)
+```
+I picked 429 because you didn't give a status code. Tell me if you want a different one.
+
+**Next step:** Either you lift the protection on `utils/errors.py`, or you apply the snippet above yourself. After that I can run the full suite and flake8. Until then the new test file will fail, so remove it if you'd rather not leave a red suite.
+RESULT: success turns 7

@@ -1,0 +1,59 @@
+TOOL Read: <repo>/services/users.py
+  -> 1	from utils.errors import NotFoundError, ValidationError | 2	 | 3	NOTIFICATION_PREFS = ("email", "sms", "none") | 4	 | 5	USERS: dict[int, dict] = { | 6	    1: {"id": 1, "name": "Alice", "email": "alice@example.com", | 7	        "notification_pref": "none"}, | 8	    2: {"id": 2, "name": "Bob",   "email": "bob@example.com", | 9	        "notification_pref": "none"}, | 10	} | 11	 | 12	def get_user(user_id: int) -> dict: | 13	    """Retrieve a user by ID. | 14	 | 15	    Args: | 16	        user_id: T
+TOOL Bash: ls tests; cat tests/conftest.py; cat tests/test_users.py 2>/dev/null; grep -rn "users" tests --include=*.py -l
+  -> __init__.py | __pycache__ | conftest.py | test_api.py | test_notifications.py | test_tasks.py | import copy |  | import pytest |  | from services.tasks import TASKS | from services.users import USERS |  |  | @pytest.fixture(autouse=True) | def restore_data(): |     """Snapshot TASKS and USERS before each test and restore them afterwards. |  |     Both dicts are mutated in place because routes and services hold |     references to the same dict objects. |     """ |     saved_tasks = copy.deepcopy
+TOOL Bash: grep -n "users\|get_user\|create_user\|list_users" tests/*.py routes/api.py | head -40; sed -n 1,30p tests/test_tasks.py; /usr/bin/python3 -m pytest -q 2>&1 | tail -5
+  -> tests/test_notifications.py:48:def test_get_users_includes_notification_pref(client): | tests/test_notifications.py:49:    resp = client.get("/api/users") | tests/test_notifications.py:58:def test_get_user_includes_notification_pref(client): | tests/test_notifications.py:59:    resp = client.get("/api/users/1") | tests/test_notifications.py:65:    resp = client.get("/api/users/1/notifications") | tests/test_notifications.py:71:    resp = client.get("/api/users/999/notifications") | tests/test_no
+TOOL Bash: cat utils/errors.py
+  -> class AppError(Exception): |     def __init__(self, message: str, status_code: int = 400): |         self.message = message |         self.status_code = status_code |         super().__init__(self.message) |  | class NotFoundError(AppError): |     def __init__(self, resource: str): |         super().__init__(f"{resource} not found", status_code=404) |  | class ValidationError(AppError): |     def __init__(self, field: str, reason: str): |         super().__init__(f"Invalid {field}: {reason}", st
+ASSISTANT: Nothing in the suite tests `services/users.py` directly, and `tests/test_users.py` doesn't exist. I'll create it one function at a time, starting with `get_user`.
+TOOL Write: <repo>/tests/test_users.py
+  -> File created successfully at: <repo>/tests/test_users.py (file state is current in your context — no need to Read it back)
+TOOL Bash: /usr/bin/python3 -m pytest -q 2>&1 | tail -8
+  -> ........................................................................ [ 66%] | .....................................                                    [100%] | 109 passed in 0.20s
+TOOL Bash: cat >> tests/test_users.py <<'EOF'
+
+
+def test_list_users_returns_seed_users():
+    result = list_users()
+    assert isinstance(result, list)
+    assert [u["id"] for u in result] == [1, 2]
+    assert [u["name"] for u in result] == ["Alice", "Bob"]
+
+
+def test_list_users_reflects_added_user():
+    USERS[3] = {"id": 3, "name": "Carol", "email": "carol@example.com",
+                "notification_pref":
+  -> ........................................................................ [ 64%] | ........................................                                 [100%] | 112 passed in 0.23s
+TOOL Bash: cat >> tests/test_users.py <<'EOF'
+
+
+def test_create_user_valid():
+    result = create_user("Carol", "carol@example.com")
+    assert result == {"id": 3, "name": "Carol", "email": "carol@example.com",
+                      "notification_pref": "none"}
+
+
+def test_create_user_is_stored_in_users():
+    created = create_user("Carol", "carol@example.com")
+    assert get_user(created["id"]) == created
+  
+  -> ........................................................................ [ 57%] | ....................................................x                    [100%] | 124 passed, 1 xfailed in 0.23s
+ASSISTANT: I added `tests/test_users.py` with 22 test cases and edited nothing else. The final run is `124 passed, 1 xfailed`, with 0 failed, and flake8 is clean on the new file.
+
+```
+........................................................................ [ 57%]
+....................................................x                    [100%]
+124 passed, 1 xfailed in 0.23s
+```
+
+The suite was at 103 passed before this task. `services/users.py` had no direct tests at all. Only the routes were exercised, through `test_notifications.py`.
+
+| function | tests added | covered paths | bugs found |
+|---|---|---|---|
+| `get_user` | 6 (1 plain, 1 parametrized over 4 ids) | Returns the full record for id 1 and the right user for id 2. Raises `NotFoundError` for ids 0, 3, 999 and -1, with message `"User not found"` and status 404. | none |
+| `list_users` | 3 | Returns the seed users in order. Includes a user added later. Returns `[]` when the store is empty. | none |
+| `create_user` | 13 (3 plain, 2 parametrized, 1 xfail) | Returns the full record with id 3 and `notification_pref` `"none"`. The user is stored and retrievable, and ids increment. `ValidationError` is raised for empty, whitespace-only or `None` names, and for empty, `None`, whitespace-only or `@`-less emails. Both errors are asserted by message and status 422. Invalid input leaves `USERS` unchanged. | 1, below |
+
+**Bug found, not fixed:** `create_user` calls `max(USERS.keys())`. When `USERS` is empty, that raises a raw `ValueError` (`ma
+RESULT: success turns 9

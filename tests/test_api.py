@@ -127,3 +127,32 @@ def test_get_tasks_filter_by_priority_invalid_returns_422(client, value):
     resp = client.get(f"/api/tasks?priority={value}")
     assert resp.status_code == 422
     assert "error" in resp.get_json()
+
+
+def test_post_tag_returns_201(client):
+    resp = client.post("/api/tags", json={"name": "urgent"})
+    assert resp.status_code == 201
+    body = resp.get_json()
+    assert body["name"] == "urgent"
+    assert "id" in body
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"json": {}},
+    {"json": {"name": ""}},
+    {"json": {"name": "   "}},
+    {},
+])
+def test_post_tag_missing_name_returns_422(client, kwargs):
+    resp = client.post("/api/tags", **kwargs)
+    assert resp.status_code == 422
+    assert "error" in resp.get_json()
+
+
+def test_get_tags_returns_200_and_lists_created_tag(client):
+    created = client.post("/api/tags", json={"name": "listed"}).get_json()
+    resp = client.get("/api/tags")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert isinstance(body, list)
+    assert created in body

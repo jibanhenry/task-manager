@@ -1,0 +1,10 @@
+16a17,19
+> PROJECT_DIR = os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+> 
+> 
+19c22,24
+<     norm = os.path.normpath(file_path)
+---
+>     # Claude Code sends absolute paths; BLOCKED_PATHS are project-relative.
+>     norm = os.path.normpath(
+>         os.path.relpath(os.path.abspath(file_path), PROJECT_DIR))

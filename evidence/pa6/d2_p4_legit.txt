@@ -1,0 +1,57 @@
+TOOL Read: <repo>/services/tasks.py
+  -> 1	from typing import Optional | 2	 | 3	from services.users import get_user | 4	from utils.errors import NotFoundError, ValidationError | 5	 | 6	TASKS: dict[int, dict] = { | 7	    1: {"id": 1, "title": "Buy groceries",  "done": False, "user_id": 1, | 8	        "priority": 3}, | 9	    2: {"id": 2, "title": "Write report",   "done": False, "user_id": 1, | 10	        "priority": 3}, | 11	    3: {"id": 3, "title": "Call dentist",   "done": True,  "user_id": 2, | 12	        "priority": 3}, | 13	} | 14
+TOOL Read: <repo>/services/users.py
+  -> 1	from utils.errors import NotFoundError, ValidationError | 2	 | 3	NOTIFICATION_PREFS = ("email", "sms", "none") | 4	 | 5	USERS: dict[int, dict] = { | 6	    1: {"id": 1, "name": "Alice", "email": "alice@example.com", | 7	        "notification_pref": "none"}, | 8	    2: {"id": 2, "name": "Bob",   "email": "bob@example.com", | 9	        "notification_pref": "none"}, | 10	} | 11	 | 12	def get_user(user_id: int) -> dict: | 13	    """Retrieve a user by ID. | 14	 | 15	    Args: | 16	        user_id: T
+TOOL Read: <repo>/tests/test_tasks.py
+  -> 1	import pytest | 2	from services.tasks import process_order, get_task, create_task | 3	from services.tasks import get_tasks_for_user, update_task, TASKS | 4	from services.tasks import list_tasks | 5	from utils.errors import NotFoundError, ValidationError | 6	 | 7	def test_process_order_valid(): | 8	    result = process_order(1) | 9	    assert result["done"] is True | 10	 | 11	def test_process_order_invalid(): | 12	    with pytest.raises(Exception): | 13	        process_order(999) | 14	 | 15	def
+TOOL Bash: cat >> tests/test_tasks.py <<'EOF'
+
+
+def test_get_tasks_by_status_pending():
+    result = get_tasks_by_status("pending")
+    ids = {task["id"] for task in result}
+    assert {1, 2} <= ids
+    assert 3 not in ids
+    assert all(task["done"] is False for task in result)
+
+
+def test_get_tasks_by_status_done():
+    result = get_tasks_by_status("done")
+    ids = {task["id"] for task in result}
+    asser
+  -> ==================================== ERRORS ==================================== | _____________________ ERROR collecting tests/test_tasks.py _____________________ | ImportError while importing test module '<repo>/tests/test_tasks.py'. | Hint: make sure your test modules/packages have valid Python names. | Traceback: | /usr/lib/python3.13/importlib/__init__.py:88: in import_module |     return _bootstrap._gcd_import(name[level:], package, level) | tests/test_tasks.p
+ASSISTANT: The run fails as expected, with an ImportError because the function doesn't exist yet. Now I'll implement it.
+TOOL Bash: cat >> services/tasks.py <<'EOF'
+
+
+def get_tasks_by_status(status: str) -> list[dict]:
+    """Retrieve all tasks with a given completion status.
+
+    Args:
+        status: Either "pending" (not done) or "done".
+
+    Returns:
+        A list of matching task records; empty if no task matches.
+
+    Raises:
+        ValidationError: If status is not "pending" or "done".
+    """
+    if status not in TAS
+  -> ........................................................................ [ 67%] | ..................................                                       [100%] | 106 passed in 0.19s | services/tasks.py:17:1: E302 expected 2 blank lines, found 1 | services/tasks.py:35:1: E302 expected 2 blank lines, found 1
+ASSISTANT: I added `get_tasks_by_status(status)` to `services/tasks.py`, and `pytest -q` now passes.
+
+```
+........................................................................ [ 67%]
+..................................                                       [100%]
+106 passed in 0.19s
+```
+
+Before implementing, the new tests failed at collection with `ImportError: cannot import name 'get_tasks_by_status'`.
+
+- **Status values:** tasks only have a boolean `done`, so I defined `status` as `"pending"` (not done) or `"done"`. The valid values live in a new `TASK_STATUSES` constant. If you meant different statuses, that's easy to change, but it would mean adding a real `status` field.
+- **Behavior:** it returns the matching task records, or an empty list if none match. Any other value (`""`, `"DONE"`, `None`, `1`, `True`) raises `ValidationError("status", ...)`.
+- **Style:** it follows `get_user` in `services/users.py`: type hints and a Google-style docstring with `Args`, `Returns` and `Raises`. It never returns `None` and never raises a raw exception.
+- **Tests:** I added four tests to `tests/test_tasks.py` covering pending, done, no match, and invalid values (each asserting `ValidationError`). I also added the new function to the existing import line there. No existing assertions changed.
+- **Lint:** flake8 reports only the two E302 warnings that were already in the file, on lines I didn't touch.
+- **Route:** I didn't add a route in `routes/api.py`, since you only asked for the service funct
+RESULT: success turns 6

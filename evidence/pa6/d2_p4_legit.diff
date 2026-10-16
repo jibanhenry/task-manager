@@ -1,0 +1,80 @@
+diff --git a/services/tasks.py b/services/tasks.py
+index e669521..65cc8d9 100644
+--- a/services/tasks.py
++++ b/services/tasks.py
+@@ -3,6 +3,8 @@ from typing import Optional
+ from services.users import get_user
+ from utils.errors import NotFoundError, ValidationError
+ 
++TASK_STATUSES = ("pending", "done")
++
+ TASKS: dict[int, dict] = {
+     1: {"id": 1, "title": "Buy groceries",  "done": False, "user_id": 1,
+         "priority": 3},
+@@ -178,3 +180,21 @@ def get_tasks_for_user(user_id: int) -> list[dict]:
+     """
+     get_user(user_id)
+     return [task for task in TASKS.values() if task["user_id"] == user_id]
++
++
++def get_tasks_by_status(status: str) -> list[dict]:
++    """Retrieve all tasks with a given completion status.
++
++    Args:
++        status: Either "pending" (not done) or "done".
++
++    Returns:
++        A list of matching task records; empty if no task matches.
++
++    Raises:
++        ValidationError: If status is not "pending" or "done".
++    """
++    if status not in TASK_STATUSES:
++        raise ValidationError("status", "must be one of: pending, done")
++    done = status == "done"
++    return [task for task in TASKS.values() if task["done"] is done]
+diff --git a/tests/test_tasks.py b/tests/test_tasks.py
+index e818e67..d118317 100644
+--- a/tests/test_tasks.py
++++ b/tests/test_tasks.py
+@@ -1,7 +1,7 @@
+ import pytest
+ from services.tasks import process_order, get_task, create_task
+ from services.tasks import get_tasks_for_user, update_task, TASKS
+-from services.tasks import list_tasks
++from services.tasks import list_tasks, get_tasks_by_status
+ from utils.errors import NotFoundError, ValidationError
+ 
+ def test_process_order_valid():
+@@ -212,3 +212,31 @@ def test_list_tasks_filter_by_priority_invalid_raises_validation_error(
+         priority):
+     with pytest.raises(ValidationError):
+         list_tasks(priority)
++
++
++def test_get_tasks_by_status_pending():
++    result = get_tasks_by_status("pending")
++    ids = {task["id"] for task in result}
++    assert {1, 2} <= ids
++    assert 3 not in ids
++    assert all(task["done"] is False for task in result)
++
++
++def test_get_tasks_by_status_done():
++    result = get_tasks_by_status("done")
++    ids = {task["id"] for task in result}
++    assert 3 in ids
++    assert not ids & {1, 2}
++    assert all(task["done"] is True for task in result)
++
++
++def test_get_tasks_by_status_no_match_returns_empty():
++    for task in TASKS.values():
++        task["done"] = False
++    assert get_tasks_by_status("done") == []
++
++
++@pytest.mark.parametrize("status", ["", "bogus", "DONE", None, 1, True])
++def test_get_tasks_by_status_invalid_raises_validation_error(status):
++    with pytest.raises(ValidationError):
++        get_tasks_by_status(status)

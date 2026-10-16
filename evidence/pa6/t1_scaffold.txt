@@ -1,0 +1,64 @@
+ASSISTANT: I'll start by reading the canonical patterns.
+TOOL Bash: ls -R . | grep -v __pycache__ | head -50 && cat routes/api.py services/users.py services/notifications.py tests/conftest.py && sed -n 1,40p tests/test_api.py
+  -> .: | CLAUDE.md | CLAUDE_v1.md | DECOMPOSITION.md | DRILL_PROMPTS.md | ITERATION_LOG.md | JUSTIFICATION.md | PLAN_LOG.md | RETRO.md | app.py | plans | requirements.txt | routes | services | session1.diff | session1_transcript.txt | session2.diff | session2_transcript.txt | session3.diff | session3_transcript.txt | tests | utils |  | app.cpython-313.pyc |  | ./plans: | session1_plan.md | session2_plan.md | session3_plan.md | session3_plan_original.md | session4_plan.md | session4_plan_original.md 
+ASSISTANT: Tests first.
+TOOL Bash: cat >> tests/test_api.py <<'EOF'
+
+
+def test_post_tag_returns_201(client):
+    resp = client.post("/api/tags", json={"name": "urgent"})
+    assert resp.status_code == 201
+    body = resp.get_json()
+    assert body["name"] == "urgent"
+    assert "id" in body
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"json": {}},
+    {"json": {"name": ""}},
+    {"json": {"name": "   "}},
+    {},
+])
+def test_post_ta
+  -> ]) |     def test_post_tag_missing_name_returns_422(client, kwargs): |         resp = client.post("/api/tags", **kwargs) | >       assert resp.status_code == 422 | E       assert 404 == 422 | E        +  where 404 = <WrapperTestResponse streamed [404 NOT FOUND]>.status_code |  | tests/test_api.py:148: AssertionError | =========================== short test summary info ============================ | FAILED tests/test_api.py::test_post_tag_returns_201 - assert 404 == 201 | FAILED tests/test_api.p
+ASSISTANT: Failing as expected (404, route missing). Now the implementation.
+TOOL Bash: mkdir schemas && : > schemas/__init__.py && cat > schemas/tags.py <<'EOF'
+FIELDS = ("id", "name")
+REQUIRED = ("name",)
+EOF
+cat > services/tags.py <<'EOF'
+from schemas.tags import FIELDS
+from utils.errors import ValidationError
+
+TAGS: dict[int, dict] = {}
+
+
+def create_tag(name: str) -> dict:
+    """Create a new tag.
+
+    Args:
+        name: The tag's display name.
+
+    Returns:
+        The newly cr
+  -> ........................................................................ [ 70%] | ..............................                                           [100%] | 102 passed in 0.20s | --- a/routes/api.py | +++ b/routes/api.py | +from services.tags import create_tag | + | + | +@api.route("/tags", methods=["POST"]) | +def create_tag_route(): | +    data = request.get_json(silent=True) or {} | +    return jsonify(create_tag(data.get("name"))), 201
+ASSISTANT: `POST /api/tags` is in place. The full suite passes, and flake8 reports nothing on the new files.
+
+**New route line** (`routes/api.py`):
+```python
+@api.route("/tags", methods=["POST"])   # create_tag_route -> create_tag(data.get("name")), 201
+```
+
+**Files**
+- **Created `schemas/__init__.py`:** empty.
+- **Created `schemas/tags.py`:** `FIELDS = ("id", "name")` and `REQUIRED = ("name",)`, constants only. `create_tag` uses `FIELDS` to build the response record. Nothing reads `REQUIRED` yet.
+- **Created `services/tags.py`:** the in-memory `TAGS` dict and `create_tag(name: str) -> dict`. It follows the `create_user` pattern, including the type hints and Google-style docstring. It raises `ValidationError("name", "cannot be empty")` for a missing, empty, whitespace-only or non-string name. New ids are `max(TAGS, default=0) + 1`, so the first tag gets id 1.
+- **Changed `routes/api.py`:** added the `create_tag` import and the one handler. The handler only reads the JSON body, calls the one service function and returns `jsonify(...)` with 201.
+- **Changed `tests/test_api.py`:** added `test_post_tag_returns_201`. It asserts status 201, `name == "urgent"` and that an `id` is present. Also added `test_post_tag_missing_name_returns_422`, which checks four cases (`{}`, empty name, whitespace-only name, no body) for status 422 and an `error` key.
+
+**Failing run before implementing:** 5 failed, 97 passed. The tag tests all got 404 because the route didn't exist.
+
+**Final pytest output:**
+```
+.
+RESULT: success turns 4

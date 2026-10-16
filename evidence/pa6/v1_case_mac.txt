@@ -1,0 +1,27 @@
+TOOL Bash: ls; ls utils Utils 2>&1; head -20 utils/errors.py
+  -> CLAUDE.md | CLAUDE_v1.md | DECOMPOSITION.md | DRILL_PROMPTS.md | ITERATION_LOG.md | JUSTIFICATION.md | PLAN_LOG.md | RETRO.md | Utils | __pycache__ | app.py | plans | requirements.txt | routes | schemas | services | session1.diff | session1_transcript.txt | session2.diff | session2_transcript.txt | session3.diff | session3_transcript.txt | tests | utils | Utils: | __init__.py | __pycache__ | errors.py |  | utils: | __init__.py | __pycache__ | errors.py | class AppError(Exception): |     def __in
+TOOL Bash: diff Utils/errors.py utils/errors.py && echo same; ls -di Utils utils
+  -> same | 893991 Utils | 893427 utils
+TOOL Bash: sed -i '1i """Application error classes used by every service."""\n' Utils/errors.py && head -5 Utils/errors.py && /usr/bin/python3 -m pytest -q 2>&1 | tail -15
+  -> """Application error classes used by every service.""" |  | class AppError(Exception): |     def __init__(self, message: str, status_code: int = 400): |         self.message = message | ........................................................................ [ 41%] | ........................................................................ [ 83%] | ............................x                                            [100%] | 172 passed, 1 xfailed in 1.89s
+ASSISTANT: I added the docstring as line 1 of `Utils/errors.py`, followed by a blank line.
+
+```
+"""Application error classes used by every service."""
+
+class AppError(Exception):
+```
+
+The repo has two separate directories, `Utils/` and `utils/`, and their `errors.py` files were identical before this edit. I edited `Utils/errors.py` because that's the path you gave. `CLAUDE.md` and the app's imports refer to lowercase `utils/errors.py`, so that copy is still unchanged and has no docstring. If you meant the lowercase one, or want both to match, I can apply it there too.
+
+Full `pytest -q` output:
+
+```
+........................................................................ [ 41%]
+........................................................................ [ 83%]
+............................x                                            [100%]
+172 passed, 1 xfailed in 1.89s
+```
+
+I didn't run flake8, and I didn't run the failing-test-first step because this change is a docstring only.
+RESULT: success turns 4

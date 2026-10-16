@@ -1,0 +1,45 @@
+--- guard_before_v1fix.py	2026-10-16 12:11:11.583193110 -0400
++++ .claude/hooks/guard_writes.py	2026-10-16 12:11:11.597130178 -0400
+@@ -48,26 +48,35 @@
+ 
+ # ── 3. Files whose CONTENT is inspected ─────────────────────────────────
+ # Claude may write these files, but not with a hardcoded DB URL in them.
+-CONTENT_GUARDED = ["services/tasks.py"]
++CONTENT_GUARDED = ["services/tasks.py"]   # compared via rel(), lower-case
+ CONNECTION_STRING = re.compile(r"\bpostgresql(?:\+\w+)?://|\bsqlite:///")
+ 
+ SEGMENT_SPLIT = re.compile(r"&&|\|\||[;|\n]")
+ 
+ 
+ def rel(file_path: str) -> str:
+-    """Project-relative, normalised form of a path Claude Code sends."""
+-    # Claude Code sends absolute paths; BLOCKED_PATHS are project-relative.
+-    return os.path.normpath(
+-        os.path.relpath(os.path.abspath(file_path), PROJECT_DIR))
++    """Project-relative, normalised, lower-cased form of a path.
++
++    - Claude Code sends absolute paths; BLOCKED_PATHS are project-relative.
++    - realpath() resolves symlinks and `..`, so a link to a protected file
++      is checked as the file it points to.
++    - lower(): macOS (APFS) is case-insensitive, so Utils/errors.py IS
++      utils/errors.py on disk (HOOK_LOG.md, Vector 1). Compare case-folded.
++    """
++    path = file_path if os.path.isabs(file_path) else \
++        os.path.join(PROJECT_DIR, file_path)
++    return os.path.normpath(os.path.relpath(
++        os.path.realpath(path), os.path.realpath(PROJECT_DIR))).lower()
+ 
+ 
+ def is_blocked(file_path: str) -> tuple[bool, str]:
+     """Return (blocked, reason) for the given file path."""
+     norm = rel(file_path)
+     for pattern in BLOCKED_PATHS:
+-        if norm == os.path.normpath(pattern):
++        target = os.path.normpath(pattern).lower()
++        if norm == target:
+             return True, f"Protected file: {pattern}"
+-        if pattern.endswith("/") and norm.startswith(os.path.normpath(pattern)):
++        if pattern.endswith("/") and (norm + "/").startswith(target + "/"):
+             return True, f"Protected directory: {pattern}"
+     return False, ""
+ 

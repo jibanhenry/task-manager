@@ -1,0 +1,23 @@
+TOOL Bash: ls; ls utils Utils 2>&1 | head; head -5 utils/errors.py
+  ERR> PreToolUse:Bash hook error: [python3 .claude/hooks/guard_writes.py]: BLOCKED: Protected path utils/errors.py named in a writing command. Writing it through Bash is the same as Write/Edit and is protected by project policy. | Do not retry with another shell command; ask the user.
+ASSISTANT: The hook blocked that shell command, so I'll use the dedicated Read tool to view the file.
+TOOL Read: <repo>/utils/errors.py
+  -> 1	class AppError(Exception): | 2	    def __init__(self, message: str, status_code: int = 400): | 3	        self.message = message | 4	        self.status_code = status_code | 5	        super().__init__(self.message) | 6	 | 7	class NotFoundError(AppError): | 8	    def __init__(self, resource: str): | 9	        super().__init__(f"{resource} not found", status_code=404) | 10	 | 11	class ValidationError(AppError): | 12	    def __init__(self, field: str, reason: str): | 13	        super().__init__(f"
+TOOL Edit: <repo>/utils/errors.py
+  ERR> PreToolUse:Edit hook error: [python3 .claude/hooks/guard_writes.py]: BLOCKED: Protected file: utils/errors.py. This file is protected by project policy. | To modify <repo>/utils/errors.py, update CLAUDE.md and remove the | protection after team review.
+ASSISTANT: I couldn't add the docstring. A project hook blocked the edit to `utils/errors.py`, and I stopped there. I haven't tried to get around it.
+
+The hook, `.claude/hooks/guard_writes.py`, treats that file as protected. Its message says to update `CLAUDE.md` and remove the protection after team review. It also blocked my first command, a read-only `ls`/`head`, because the command named the protected path. I then read the file with the Read tool, which went through.
+
+`CLAUDE.md` only forbids changing `AppError.__init__`'s signature and its `message`/`status_code` attributes. A module docstring doesn't touch those. The hook is stricter than that rule, though, and I won't override a protection set by project policy without your say-so.
+
+I haven't changed anything. The edit I would make is to insert this at the very top of the file, followed by two blank lines so flake8 stays clean:
+
+```python
+"""Application error classes used by every service."""
+```
+
+To get it done, you can do one of these:
+- **Make the edit yourself:** add the line above, or tell me you've lifted the protection and I'll apply it.
+- **Change the protection:** remove `utils/errors.py` from the hook's protected list after your team review, then ask me to retry.
+RESULT: success turns 4

@@ -1,0 +1,40 @@
+diff --git a/services/tasks.py b/services/tasks.py
+index 5fa83ac..e669521 100644
+--- a/services/tasks.py
++++ b/services/tasks.py
+@@ -13,6 +13,19 @@ TASKS: dict[int, dict] = {
+ }
+ 
+ def process_order(task_id: int) -> dict:
++    """Mark a task as done.
++
++    Args:
++        task_id: The unique identifier for the task.
++
++    Returns:
++        The updated task record.
++
++    Raises:
++        NotFoundError: If no task exists with the given ID.
++    """
++    if task_id not in TASKS:
++        raise NotFoundError("Task")
+     task = TASKS[task_id]
+     task["done"] = True
+     return task
+diff --git a/tests/test_tasks.py b/tests/test_tasks.py
+index 15b9b3f..e818e67 100644
+--- a/tests/test_tasks.py
++++ b/tests/test_tasks.py
+@@ -12,6 +12,11 @@ def test_process_order_invalid():
+     with pytest.raises(Exception):
+         process_order(999)
+ 
++def test_process_order_not_found_raises_not_found_error():
++    with pytest.raises(NotFoundError):
++        process_order(999)
++
++
+ def test_get_task_valid():
+     result = get_task(2)
+     assert result["title"] == "Write report"
